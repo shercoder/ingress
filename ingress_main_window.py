@@ -10,7 +10,6 @@ WINDOW_HEIGHT = 600
 LEFT_PANED_WIDTH = 300
 
 class IngressMainWindow(Gtk.Window):
-    """docstring for IngressMainWindow"""
     def __init__(self):
         super(IngressMainWindow, self).__init__(type=Gtk.WindowType.TOPLEVEL, title="Ingress")
 
@@ -20,27 +19,43 @@ class IngressMainWindow(Gtk.Window):
         #window paned
         self.paned_widget = self.add_paned()
 
+        self.display_selected_file_info()
+
     def add_paned(self):
         paned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
 
-        paned.add1(self._add_tree_view())
-        paned.add2(Gtk.Button(label="My Button2"))
+        self.add_tree_view()
 
-        Gtk.Widget.set_size_request(paned.get_child1(), LEFT_PANED_WIDTH, WINDOW_HEIGHT)
+        paned.pack1(self.treeview, shrink=False)
+        paned.pack2(Gtk.Frame())
+        Gtk.Widget.set_size_request(paned.get_child1(), LEFT_PANED_WIDTH, -1)
+
+        # scrolled_window = Gtk.ScrolledWindow()
+        # scrolled_window.set_border_width(10)
+        # scrolled_window.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
+        # scrolled_window.add_with_viewport(paned.get_child1())
 
         self.add(paned)
         return paned
 
-    def _add_tree_view(self):
+    def add_tree_view(self):
+        self.store = IngressTreeStore()
+        self.store.generate_tree(HOME)
 
-        store = IngressTreeStore(str)
-        store.generate_tree(HOME)
-
-        treeview = Gtk.TreeView(store)
+        self.treeview = Gtk.TreeView(self.store)
         renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn("FileName", renderer, text=0)
-        treeview.append_column(column)
-        return treeview
+        column = Gtk.TreeViewColumn(None, renderer, text=0)
+        self.treeview.append_column(column)
+
+    def display_selected_file_info(self):
+        selection = self.treeview.get_selection()
+        selection.connect("changed", self.on_tree_selection_changed)
+        # print(selection.get_user_data())
+
+    def on_tree_selection_changed(self, selection):
+        model, treeiter = selection.get_selected()
+        if treeiter != None:
+            print("You selected", model[treeiter][1])
 
     def quit_main_window(self):
         self.connect("delete-event", Gtk.main_quit)

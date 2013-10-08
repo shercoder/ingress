@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
-from  ingress_model_view import IngressTreeStore
+from  ingress_model_view import *
 from os.path import expanduser
 
 HOME = expanduser("~")
@@ -23,17 +23,16 @@ class IngressMainWindow(Gtk.Window):
 
     def add_paned(self):
         paned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
+        paned.pack2(Gtk.Frame())
 
         self.add_tree_view()
+        scrolled_window = Gtk.ScrolledWindow()
+        scrolled_window.set_border_width(10)
+        scrolled_window.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
+        scrolled_window.add_with_viewport(self.treeview)
+        paned.pack1(scrolled_window, shrink=False)
 
-        paned.pack1(self.treeview, shrink=False)
-        paned.pack2(Gtk.Frame())
         Gtk.Widget.set_size_request(paned.get_child1(), LEFT_PANED_WIDTH, -1)
-
-        # scrolled_window = Gtk.ScrolledWindow()
-        # scrolled_window.set_border_width(10)
-        # scrolled_window.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
-        # scrolled_window.add_with_viewport(paned.get_child1())
 
         self.add(paned)
         return paned
@@ -41,11 +40,7 @@ class IngressMainWindow(Gtk.Window):
     def add_tree_view(self):
         self.store = IngressTreeStore()
         self.store.generate_tree(HOME)
-
-        self.treeview = Gtk.TreeView(self.store)
-        renderer = Gtk.CellRendererText()
-        column = Gtk.TreeViewColumn(None, renderer, text=0)
-        self.treeview.append_column(column)
+        self.treeview = IngressTreeView(self.store)
 
     def display_selected_file_info(self):
         selection = self.treeview.get_selection()

@@ -1,22 +1,31 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
+from os.path import expanduser
 import os
+
+HOME = expanduser("~")
 
 class IngressTreeStore(Gtk.TreeStore):
     def __init__(self):
-        super(IngressTreeStore, self).__init__(str, str)
+        super().__init__(str, str)
+        self.generate_tree(HOME)
 
 
     def generate_tree(self, path, parent=None):
-        parent = self.append(parent, [os.path.basename(path), path])
-        self.append(parent, None)
-        # for dirname, subdirs, files in sorted(os.walk(path)):
-        #     for subdir in subdirs:
-        #         parents[os.path.join(dirname, subdir)] = self.append(parents.get(dirname, None), [subdir, os.path.join(dirname, subdir)])
+        if parent is None:
+            parent = self.append(parent, [os.path.basename(path), path])
+            self.append(parent, None)
+        else:
+            self.remove(self.iter_children(parent))
+            for filename in sorted(os.listdir(path)):
+                fullpath = os.path.join(path, filename)
 
-        #     for file in sorted(files):
-        #        self.append(parents.get(dirname, None), [file, os.path.join(dirname, file)])
+                if os.path.isdir(fullpath):
+                    child_parent = self.append(parent, [filename, fullpath])
+                    self.append(child_parent, None)
+                else:
+                    self.append(parent, [filename, fullpath])
 
 class IngressTreeView(Gtk.TreeView):
     def __init__(self, treestore):
@@ -26,9 +35,19 @@ class IngressTreeView(Gtk.TreeView):
         column = Gtk.TreeViewColumn(None, renderer, text=0)
         self.append_column(column)
         self.connect("row-expanded", self.on_row_expanded)
+        self.connect("row-collapsed", self.on_row_collapsed)
 
-    def on_row_expanded(self, iter, treepath, user_data):
-        print("I am expanded")
+    def on_row_expanded(self, view, iter, treepath):
+        model = self.get_model()
+        fullpath = model[iter][1]
+        model.generate_tree(fullpath, iter)
+
+    def on_row_collapsed(self, view, iter, path):
+        model = self.get_model()
+        if model.iter_has_child(iter):
+            while model.iter_has_child(iter):
+                model.remove(model.iter_children(iter))
+            model.append(iter, None)
 
 class IngressFileBasicInfo(object):
     def __init__(self, fullpath, type):

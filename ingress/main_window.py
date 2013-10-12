@@ -2,9 +2,7 @@
 
 from gi.repository import Gtk
 from  model_view import *
-from os.path import expanduser
 
-HOME = expanduser("~")
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 600
 LEFT_PANED_WIDTH = 300
@@ -25,7 +23,7 @@ class IngressMainWindow(Gtk.Window):
         paned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
         paned.pack2(Gtk.Frame())
 
-        self.add_tree_view()
+        self.create_tree()
         scrolled_window = Gtk.ScrolledWindow()
         scrolled_window.set_border_width(10)
         scrolled_window.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
@@ -37,9 +35,8 @@ class IngressMainWindow(Gtk.Window):
         self.add(paned)
         return paned
 
-    def add_tree_view(self):
+    def create_tree(self):
         self.store = IngressTreeStore()
-        self.store.generate_tree(HOME)
         self.treeview = IngressTreeView(self.store)
 
     def display_selected_file_info(self):

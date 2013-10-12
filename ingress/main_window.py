@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
-from  ingress_model_view import *
+from  model_view import *
 from os.path import expanduser
 
 HOME = expanduser("~")

@@ -21,6 +21,7 @@ class IngressTreeStore(Gtk.TreeStore):
             for filename in sorted(os.listdir(path)):
                 fullpath = os.path.join(path, filename)
 
+                if filename.startswith('.'): continue
                 if os.path.isdir(fullpath):
                     child_parent = self.append(parent, [filename, fullpath])
                     self.append(child_parent, None)
@@ -30,7 +31,9 @@ class IngressTreeStore(Gtk.TreeStore):
 class IngressTreeView(Gtk.TreeView):
     def __init__(self, treestore):
         super().__init__(treestore)
+        self.set_name('IngressTreeView')
         self.set_headers_visible(False)
+
         renderer = Gtk.CellRendererText()
         column = Gtk.TreeViewColumn(None, renderer, text=0)
         self.append_column(column)
@@ -48,8 +51,3 @@ class IngressTreeView(Gtk.TreeView):
             while model.iter_has_child(iter):
                 model.remove(model.iter_children(iter))
             model.append(iter, None)
-
-class IngressFileBasicInfo(object):
-    def __init__(self, fullpath, type):
-        self.fullpath = fullpath
-        self.type = type

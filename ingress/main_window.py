@@ -58,6 +58,7 @@ class IngressMainWindow(Gtk.Window):
         self._notebook = Gtk.Notebook()
         self._notebook.set_tab_pos(Gtk.PositionType.TOP)
         self.create_general_tab()
+        self.create_permissions_tab()
         return self._notebook
 
     def display_selected_file_info(self):
@@ -68,10 +69,10 @@ class IngressMainWindow(Gtk.Window):
         model, treeiter = selection.get_selected()
         if treeiter != None:
             self.update_general_tab(model[treeiter][1])
+            self.update_permissions_tab(model[treeiter][1])
 
     def update_general_tab(self, filepath):
-        cur_page_num = self._notebook.get_current_page()
-        grid = self._notebook.get_nth_page(cur_page_num)
+        grid = self._notebook.get_nth_page(0)
 
         filestat = Util.get_file_stat(filepath)
         grid.get_children()[0].set_text(time.ctime(filestat.st_atime))
@@ -86,11 +87,20 @@ class IngressMainWindow(Gtk.Window):
         grid.get_children()[6].set_label(filesize)
         grid.get_children()[8].set_text(os.path.basename(filepath))
 
+    def update_permissions_tab(self, filepath):
+        grid = self._notebook.get_nth_page(1)
+        filestat = Util.get_file_stat(filepath)
+        owner = Util.get_usrname_from_uid(filestat.st_uid)
+        group = Util.get_grpname_from_gid(filestat.st_gid)
+
+        grid.get_children()[0].set_text(group.gr_name)
+        grid.get_children()[2].set_text(owner.pw_name)
+        # self._notebook.next_page()
 
     def create_general_tab(self):
         # General Page
         grid = Gtk.Grid(row_spacing=2, column_spacing=2, column_homogeneous=True)
-        grid.set_name('GeneralGrid')
+        grid.set_name('GeneralTab')
         self._notebook.append_page(grid, Gtk.Label(label="General"))
 
         # Create labels for general tab
@@ -118,6 +128,28 @@ class IngressMainWindow(Gtk.Window):
         grid.attach(last_modified, 1, 3, 1, 1)
         grid.attach(last_access_label, 0, 4, 1, 1)
         grid.attach(last_access, 1, 4, 1, 1)
+
+    def create_permissions_tab(self):
+        # Permissions Page
+        grid = Gtk.Grid(row_spacing=2, column_spacing=2, column_homogeneous=True)
+        grid.set_name('PermissionsGrid')
+        self._notebook.append_page(grid, Gtk.Label(label="Permissions"))
+
+        # Owner
+        owner_label = Util.create_label("Owner:")
+        owner = Util.create_label("Owner??")
+        grid.add(owner_label)
+        grid.attach(owner, 1, 0, 1, 1)
+
+        # Group
+        grp_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
+        group_label = Util.create_label("Group:")
+        group = Util.create_label("Group??")
+        grp_box.pack_start(group_label, False, True, 0)
+        grp_box.pack_start(group, False, True, 20)
+        grid.attach(grp_box, 0, 1, 2, 1)
+        # grid.attach(group_label, 0, 1, 1, 1)
+        # grid.attach(group, 1, 1, 1, 1)
 
     def on_clicked_filesize_button(self, button):
         (model, sel_iter) = self._treeview.get_selection().get_selected()

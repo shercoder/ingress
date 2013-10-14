@@ -78,12 +78,12 @@ class IngressMainWindow(Gtk.Window):
         grid.get_children()[2].set_text(time.ctime(filestat.st_mtime))
         grid.get_children()[4].set_text(os.path.dirname(filepath))
 
-        # if dir then get size recursively
-        filesize = filestat.st_size
-        # if os.path.isdir(filepath):
-        #     filesize = Util.get_dir_size(filepath)
+        # if dir then Ask user to calculate
+        filesize = str(Util.get_filesize_format(filestat.st_size))
+        if os.path.isdir(filepath):
+            filesize = "Calculate"
 
-        grid.get_children()[6].set_text(Util.get_filesize_format(filesize))
+        grid.get_children()[6].set_label(filesize)
         grid.get_children()[8].set_text(os.path.basename(filepath))
 
 
@@ -97,13 +97,15 @@ class IngressMainWindow(Gtk.Window):
         filename_label = Util.create_label("Name:")
         filename = Util.create_label("shercoder")
         filesize_label = Util.create_label("Filesize:")
-        filesize = Util.create_label("filesize goes here")
+        filesize = Gtk.Button(label="Calculate")
         location_label = Util.create_label("Location:")
         location = Util.create_label("location goes here")
         last_modified_label = Util.create_label("Last Modified:")
         last_modified = Util.create_label("last modified goes here")
         last_access_label = Util.create_label("Last Access:")
         last_access = Util.create_label("last access goes here")
+
+        filesize.connect("clicked", self.on_clicked_filesize_button)
 
         # Add label locations
         grid.attach(filename_label, 0, 0, 1, 1)
@@ -116,6 +118,12 @@ class IngressMainWindow(Gtk.Window):
         grid.attach(last_modified, 1, 3, 1, 1)
         grid.attach(last_access_label, 0, 4, 1, 1)
         grid.attach(last_access, 1, 4, 1, 1)
+
+    def on_clicked_filesize_button(self, button):
+        (model, sel_iter) = self._treeview.get_selection().get_selected()
+        if os.path.isdir(model[sel_iter][1]):
+            filesize = Util.get_dir_size(model[sel_iter][1])
+            button.set_label(Util.get_filesize_format(filesize))
 
 def main():
     win = IngressMainWindow()

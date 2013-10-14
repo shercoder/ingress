@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
-import os
+import os, pwd, grp
 
 class Util(object):
     @staticmethod
@@ -30,3 +30,11 @@ class Util(object):
                 except OSError:
                     pass
         return total_size
+
+    @staticmethod
+    def get_usrname_from_uid(uid):
+        return pwd.getpwuid(uid)
+
+    @staticmethod
+    def get_grpname_from_gid(gid):
+        return grp.getgrgid(gid)

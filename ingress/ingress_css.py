@@ -3,6 +3,10 @@ GtkNotebook {
     padding: 5px 10px;
 }
 
+GtkTreeView {
+    -GtkTreeView-expander-size: 12;
+}
+
 #IngressTreeView {
     margin: 5px;
 }

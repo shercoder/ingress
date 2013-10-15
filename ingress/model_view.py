@@ -37,7 +37,7 @@ class IngressTreeView(Gtk.TreeView):
         renderer = Gtk.CellRendererText()
         column = Gtk.TreeViewColumn(None, renderer, text=0)
         self.append_column(column)
-        self.connect("row-expanded", self.on_row_expanded)
+        self.connect("test-expand-row", self.on_row_expanded)
         self.connect("row-collapsed", self.on_row_collapsed)
 
     def on_row_expanded(self, view, iter, treepath):

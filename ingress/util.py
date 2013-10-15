@@ -1,7 +1,11 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
-import os, pwd, grp
+import os, pwd, grp, stat
+
+# Constants
+rwx = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"]
+rwx_num = [0, 1, 2, 3, 4, 5, 6, 7]
 
 class Util(object):
     @staticmethod
@@ -38,3 +42,34 @@ class Util(object):
     @staticmethod
     def get_grpname_from_gid(gid):
         return grp.getgrgid(gid)
+
+    @staticmethod
+    def create_perm_str(mode):
+        if stat.S_ISREG(mode):
+            perms = '-'
+        elif stat.S_ISDIR(mode):
+            perms = 'd'
+        elif stat.S_ISLNK(mode):
+            perms = 'l'
+        perms += "%s%s%s" % (
+            rwx[((mode & stat.S_IRWXU) >> 6)],
+            rwx[((mode & stat.S_IRWXG) >> 3)],
+            rwx[(mode & stat.S_IRWXO)]
+        )
+        return perms
+
+    @staticmethod
+    def create_777_format(mode):
+        return "%s%s%s" % (
+            ((mode & stat.S_IRWXU) >> 6),
+            ((mode & stat.S_IRWXG) >> 3),
+            (mode & stat.S_IRWXO)
+        )
+
+    @staticmethod
+    def is_integer(entry):
+        try:
+            int(entry)
+            return True
+        except ValueError:
+            return False

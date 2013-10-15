@@ -136,11 +136,36 @@ class IngressMainWindow(Gtk.Window):
         grp_box.pack_start(group, False, True, 22)
         grid.attach(grp_box, 0, 1, 2, 1)
 
+        # Permission Mode
+        perm_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
+        perms = Util.create_label(Util.create_perm_str(filestat.st_mode))
+
+        # Entry box
+        perms_entry = Gtk.Entry.new()
+        perms_entry.set_max_length(3)
+        perms_entry.set_text(Util.create_777_format(filestat.st_mode))
+        perms_entry.connect("changed", self.on_perms_changed, perms)
+
+        # pack perm label and entry together
+        perm_box.pack_start(perms, False, True, 0)
+        perm_box.pack_start(perms_entry, False, True, 0)
+        grid.attach(perm_box, 0, 2, 2, 1)
+
     def on_clicked_filesize_button(self, button):
         (model, sel_iter) = self._treeview.get_selection().get_selected()
         if os.path.isdir(model[sel_iter][1]):
             filesize = Util.get_dir_size(model[sel_iter][1])
             button.set_label(Util.get_filesize_format(filesize))
+
+    def on_perms_changed(self, entry, perms_label):
+        text = entry.get_text()
+        if len(text) == 3 and Util.is_integer(text):
+            (model, treeiter) = self._treeview.get_selection().get_selected()
+            os.chmod(model[treeiter][1], int(text, 8))
+            filestat = Util.get_file_stat(model[treeiter][1])
+            perms_label.set_label(Util.create_perm_str(filestat.st_mode))
+
+
 
 def main():
     win = IngressMainWindow()

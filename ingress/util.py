@@ -2,6 +2,7 @@
 
 from gi.repository import Gtk
 import os, pwd, grp, stat
+from pygit2 import Repository as _Repository
 
 # Constants
 rwx = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"]
@@ -10,7 +11,16 @@ rwx_num = [0, 1, 2, 3, 4, 5, 6, 7]
 class Util(object):
     @staticmethod
     def create_label(label_name):
-        return Gtk.Label(label=label_name)
+        markup = "<b>%s</b>" % label_name
+        label = Gtk.Label(label=markup)
+        label.set_use_markup(True)
+        label.set_alignment(0.8, 0)
+        return label
+
+    def create_info_label(label_name):
+        label = Gtk.Label(label=label_name)
+        label.set_alignment(1, 0)
+        return label
 
     @staticmethod
     def get_file_stat(filepath):
@@ -72,4 +82,13 @@ class Util(object):
             int(entry)
             return True
         except ValueError:
+            return False
+
+    # Git related methods
+    @staticmethod
+    def has_git_repo(filepath):
+        try:
+            _Repository(filepath)
+            return True
+        except KeyError:
             return False

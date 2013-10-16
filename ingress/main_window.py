@@ -6,6 +6,7 @@ from ingress_css import *
 from util import Util
 import time
 from git_repo import *
+import pygit2
 
 WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 500
@@ -186,6 +187,11 @@ class IngressMainWindow(Gtk.Window):
         count_hbox.pack_start(count_entry, False, False, True)
         vbox.pack_start(count_hbox, False, False, True)
 
+        # status button
+        status_btn = Gtk.Button(label="Git Status")
+        status_btn.connect("clicked", self.create_git_status_tab, repo)
+        vbox.pack_start(status_btn, False, False, True)
+
         # add vbox to the grid
         grid.attach(vbox, 0, 12, 1, 1)
 
@@ -215,6 +221,38 @@ class IngressMainWindow(Gtk.Window):
             os.chmod(model[treeiter][1], int(text, 8))
             filestat = Util.get_file_stat(model[treeiter][1])
             perms_label.set_label(Util.create_perm_str(filestat.st_mode))
+
+    def create_git_status_tab(self, button, repo):
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+
+        wt_label = Util.create_label("<big>Working Dir Status</big>")
+        vbox.pack_start(wt_label, False, False, True)
+
+        # Display WT info
+        wt_status_code = {
+            pygit2.GIT_STATUS_WT_NEW: "new:",
+            pygit2.GIT_STATUS_WT_MODIFIED: "modified:",
+            pygit2.GIT_STATUS_WT_DELETED: "deleted:"
+        }
+        store = Gtk.ListStore(str, str)
+        files = repo.get_status_wt()
+        for filename in files:
+            store.append([wt_status_code[files[filename]], filename])
+
+        tree = Gtk.TreeView(store)
+        column = Gtk.TreeViewColumn("Filename and  Status")
+        filename = Gtk.CellRendererText()
+        file_status = Gtk.CellRendererText()
+        column.pack_start(file_status, True)
+        column.pack_start(filename, True)
+        column.add_attribute(file_status, "text", 0)
+        column.add_attribute(filename, "text", 1)
+        tree.append_column(column)
+
+        self._notebook.append_page(tree, Gtk.Label("Git Status"))
+        self._notebook.show_all()
+
+
 
 def main():
     win = IngressMainWindow()

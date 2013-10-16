@@ -24,6 +24,7 @@ class Repository(_Repository):
         for filepath, flags in status.items():
             if flags == GIT_STATUS_CURRENT:
                 files.append(filepath)
+        return files
 
     def get_status_ignored(self):
         status = self.status()
@@ -31,6 +32,7 @@ class Repository(_Repository):
         for filepath, flags in status.items():
             if flags == GIT_STATUS_IGNORED:
                 files.append(filepath)
+        return files
 
     def get_status_wt(self):
         status = self.status()
@@ -40,6 +42,7 @@ class Repository(_Repository):
                 flags == GIT_STATUS_WT_MODIFIED or \
                 flags == GIT_STATUS_WT_NEW:
                 files[filepath] = flags
+        return files
 
     def get_status_index(self):
         status = self.status()
@@ -49,6 +52,7 @@ class Repository(_Repository):
                 flags == GIT_STATUS_INDEX_MODIFIED or \
                 flags == GIT_STATUS_INDEX_NEW:
                 files[filepath] = flags
+        return files
 
     def commit_count(self):
         counter = 0

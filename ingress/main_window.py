@@ -252,8 +252,6 @@ class IngressMainWindow(Gtk.Window):
         self._notebook.append_page(tree, Gtk.Label("Git Status"))
         self._notebook.show_all()
 
-
-
 def main():
     win = IngressMainWindow()
     win.quit_main_window()

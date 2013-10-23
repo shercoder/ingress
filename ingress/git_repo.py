@@ -7,7 +7,9 @@ class Repository(_Repository):
         super().__init__(repopath)
 
     def get_cur_branch(self):
-        pass
+        for b in self.branches():
+            branch = self.lookup_branch(b)
+            if branch.is_head(): branch.branch_name
 
     def branches(self):
         return self.listall_branches()

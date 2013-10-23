@@ -55,7 +55,4 @@ class Repository(_Repository):
         return files
 
     def commit_count(self):
-        counter = 0
-        for commit in self.walk(self.head.target, GIT_SORT_TOPOLOGICAL):
-            counter +=1
-        return counter
+        return sum(1 for _ in self.walk(self.head.target, GIT_SORT_TOPOLOGICAL))

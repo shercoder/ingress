@@ -17,6 +17,7 @@ class Util(object):
         label.set_alignment(0.8, 0)
         return label
 
+    @staticmethod
     def create_info_label(label_name):
         label = Gtk.Label(label=label_name)
         label.set_alignment(1, 0)

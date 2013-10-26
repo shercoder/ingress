@@ -20,6 +20,13 @@ class IngressMainWindow(Gtk.Window):
         self.set_border_width(6)
         self.set_icon_name('ingress')
 
+        # Vertical box
+        self._window_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        self.add(self._window_vbox)
+
+        # Toolbar
+        self.add_toolbar()
+
         #window paned
         self.add_paned()
 
@@ -47,8 +54,22 @@ class IngressMainWindow(Gtk.Window):
 
         # pack 2
         self._paned.pack2(self.create_notebook())
+        self._window_vbox.pack_start(self._paned, True, True, True)
 
-        self.add(self._paned)
+    def add_toolbar(self):
+        self._toolbar = Gtk.Toolbar()
+        self._toolbar.set_style(Gtk.ToolbarStyle.BOTH)
+        self._toolbar.set_border_width(2)
+        self._window_vbox.pack_start(self._toolbar, False, False, True)
+
+        # add tool items
+        self.add_search_tool()
+
+    def add_search_tool(self):
+        toolitem = Gtk.ToolItem()
+        self._search_bar = Gtk.Entry()
+        toolitem.add(self._search_bar)
+        self._toolbar.insert(toolitem, -1)
 
     def create_tree(self):
         self._store = IngressTreeStore()
@@ -184,6 +205,7 @@ class IngressMainWindow(Gtk.Window):
         count_entry. set_max_length(4)
         count_entry.set_width_chars(4)
         count_entry.set_text(str(repo.commit_count()))
+        count_entry.set_editable(False)
         count_hbox.pack_start(count_entry, False, False, True)
         vbox.pack_start(count_hbox, False, False, True)
 

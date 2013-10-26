@@ -8,7 +8,7 @@ HOME = expanduser("~")
 
 class IngressTreeStore(Gtk.TreeStore):
     def __init__(self):
-        super().__init__(str, str)
+        super(IngressTreeStore, self).__init__(str, str)
         self.generate_tree(HOME)
 
 
@@ -30,7 +30,7 @@ class IngressTreeStore(Gtk.TreeStore):
 
 class IngressTreeView(Gtk.TreeView):
     def __init__(self, treestore):
-        super().__init__(treestore)
+        super(IngressTreeView, self).__init__(treestore)
         self.set_name('IngressTreeView')
         self.set_headers_visible(False)
 

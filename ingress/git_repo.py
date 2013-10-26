@@ -4,7 +4,7 @@ from gi.repository import Gtk
 
 class Repository(_Repository):
     def __init__(self, repopath):
-        super().__init__(repopath)
+        super(Repository, self).__init__(repopath)
 
     def get_cur_branch(self):
         for b in self.branches():

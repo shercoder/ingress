@@ -5,6 +5,7 @@ from  model_view import *
 from ingress_css import *
 from constants import *
 from util import Util
+from tagfs import *
 import time
 from git_repo import *
 import pygit2
@@ -176,6 +177,23 @@ class IngressMainWindow(Gtk.Window):
         perm_box.pack_start(perms_entry, False, True, 0)
         grid.attach(perm_box, 0, 2, 3, 1)
 
+        # Add tags to file
+        if not os.path.isdir(filepath):
+            self.add_tagging_to_grid(filepath, grid)
+
+    def add_tagging_to_grid(self, filepath, grid):
+        # Add separator
+        hseparator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
+        grid.attach(hseparator, 0, 5, 3, 3)
+
+        # Add tags
+        tagging_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        tag_entry = Gtk.Entry()
+        add_tag_button = Gtk.Button(label="Add Tag")
+        tagging_box.pack_start(tag_entry, False, False, True)
+        tagging_box.pack_start(add_tag_button, False, False, True)
+        grid.attach(tagging_box, 0, 10, 3, 3)
+
     def generate_git_info(self, grid, filepath):
         repo = Repository(filepath)
 
@@ -276,6 +294,8 @@ class IngressMainWindow(Gtk.Window):
     def on_search_enter_key(self, entry):
         # find /home/shercoder/ \( ! -regex '.*/\..*' \) | grep "soccer"
         search_terms = entry.get_text().split(',')
+        tags = [t for t in search_terms if t.startswith('@')]
+        search_terms = [t for t in search_terms if not t.startswith('@')]
 
         if entry.get_text():
             allfiles = []

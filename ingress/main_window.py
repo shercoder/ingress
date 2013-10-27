@@ -3,14 +3,12 @@
 from gi.repository import Gtk, Gdk
 from  model_view import *
 from ingress_css import *
+from constants import *
 from util import Util
 import time
 from git_repo import *
 import pygit2
-
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 500
-LEFT_PANED_WIDTH = 300
+import fnmatch
 
 class IngressMainWindow(Gtk.Window):
     def __init__(self):
@@ -68,6 +66,7 @@ class IngressMainWindow(Gtk.Window):
     def add_search_tool(self):
         toolitem = Gtk.ToolItem()
         self._search_bar = Gtk.Entry()
+        self._search_bar.connect("activate", self.on_search_enter_key)
         toolitem.add(self._search_bar)
         self._toolbar.insert(toolitem, -1)
 
@@ -274,7 +273,22 @@ class IngressMainWindow(Gtk.Window):
         self._notebook.append_page(tree, Gtk.Label("Git Status"))
         self._notebook.show_all()
 
+    def on_search_enter_key(self, entry):
+        # find /home/shercoder/ \( ! -regex '.*/\..*' \) | grep "soccer"
+        search_terms = entry.get_text().split(',')
 
+        if entry.get_text():
+            allfiles = []
+            for root, dirs, files in os.walk(HOME):
+                files = [f for f in files if not f[0] == '.']
+                dirs[:] = [d for d in dirs if not d[0] == '.']
+                for term in search_terms:
+                    for filename in fnmatch.filter(files, "*{}*".format(term)):
+                        allfiles.append((filename, os.path.join(root, filename)))
+            self._treeview.get_model().generate_search_tree(allfiles)
+        else:
+            self._treeview.get_model().generate_tree(HOME)
+            Util.clear_notebook(self._notebook)
 
 def main():
     win = IngressMainWindow()

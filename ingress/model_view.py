@@ -1,10 +1,8 @@
 #!/usr/bin/python3
 
 from gi.repository import Gtk
-from os.path import expanduser
+from constants import *
 import os
-
-HOME = expanduser("~")
 
 class IngressTreeStore(Gtk.TreeStore):
     def __init__(self):
@@ -14,6 +12,7 @@ class IngressTreeStore(Gtk.TreeStore):
 
     def generate_tree(self, path, parent=None):
         if parent is None:
+            self.clear()
             parent = self.append(parent, [os.path.basename(path), path])
             self.append(parent, None)
         else:
@@ -27,6 +26,12 @@ class IngressTreeStore(Gtk.TreeStore):
                     self.append(child_parent, None)
                 else:
                     self.append(parent, [filename, fullpath])
+
+    def generate_search_tree(self, files):
+        if files:
+            self.clear()
+            for filename, filepath in files:
+                self.append(None, [filename, filepath])
 
 class IngressTreeView(Gtk.TreeView):
     def __init__(self, treestore):

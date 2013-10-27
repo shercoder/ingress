@@ -3,10 +3,7 @@
 from gi.repository import Gtk
 import os, pwd, grp, stat
 from pygit2 import Repository as _Repository
-
-# Constants
-rwx = ["---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx"]
-rwx_num = [0, 1, 2, 3, 4, 5, 6, 7]
+from constants import *
 
 class Util(object):
     @staticmethod
@@ -93,3 +90,9 @@ class Util(object):
             return True
         except KeyError:
             return False
+
+    # Other
+    @staticmethod
+    def clear_notebook(notebook):
+        for page in notebook.get_children():
+                notebook.remove(page)

@@ -17,3 +17,12 @@ GtkTreeView {
 }
 
 """
+
+# GtkButton {
+#     -GtkButton-default-border : 0px;
+#     -GtkButton-default-outside-border : 0px;
+#     -GtkButton-inner-border: 0px;
+#     -GtkWidget-focus-line-width : 0px;
+#     -GtkWidget-focus-padding : 0px;
+#     padding: 0px;
+# }

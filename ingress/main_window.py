@@ -38,6 +38,9 @@ class IngressMainWindow(Gtk.Window):
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+        # creating index manager
+        self._index_manager = IndexManager()
+
     def quit_main_window(self):
         self.connect("delete-event", Gtk.main_quit)
 
@@ -190,6 +193,7 @@ class IngressMainWindow(Gtk.Window):
         tagging_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         tag_entry = Gtk.Entry()
         add_tag_button = Gtk.Button(label="Add Tag")
+        add_tag_button.connect("clicked", self.on_clicked_add_tag, (filepath, tag_entry))
         tagging_box.pack_start(tag_entry, False, False, True)
         tagging_box.pack_start(add_tag_button, False, False, True)
         grid.attach(tagging_box, 0, 10, 3, 3)
@@ -293,22 +297,37 @@ class IngressMainWindow(Gtk.Window):
 
     def on_search_enter_key(self, entry):
         # find /home/shercoder/ \( ! -regex '.*/\..*' \) | grep "soccer"
-        search_terms = entry.get_text().split(',')
-        tags = [t for t in search_terms if t.startswith('@')]
-        search_terms = [t for t in search_terms if not t.startswith('@')]
+        search_terms = entry.get_text()
+        is_tag_search = False
+        if search_terms.startswith('@'):
+            search_terms = search_terms[1:]
+            is_tag_search = True
+        else:
+            search_terms = search_terms.split(' ')
 
         if entry.get_text():
             allfiles = []
-            for root, dirs, files in os.walk(HOME):
-                files = [f for f in files if not f[0] == '.']
-                dirs[:] = [d for d in dirs if not d[0] == '.']
-                for term in search_terms:
-                    for filename in fnmatch.filter(files, "*{}*".format(term)):
-                        allfiles.append((filename, os.path.join(root, filename)))
+            if is_tag_search:
+                results = self._index_manager.search_documents(search_terms)
+                for hit in results:
+                    allfiles.append((hit['filename'], hit['filepath']))
+            else:
+                for root, dirs, files in os.walk(HOME):
+                    files = [f for f in files if not f[0] == '.']
+                    dirs[:] = [d for d in dirs if not d[0] == '.']
+                    for term in search_terms:
+                        for filename in fnmatch.filter(files, "*{}*".format(term)):
+                            allfiles.append((filename, os.path.join(root, filename)))
             self._treeview.get_model().generate_search_tree(allfiles)
         else:
             self._treeview.get_model().generate_tree(HOME)
             Util.clear_notebook(self._notebook)
+
+    def on_clicked_add_tag(self, button, user_data):
+        filepath, entry = user_data
+        tags = entry.get_text()
+        self._index_manager.update_document(filepath, tags)
+
 
 def main():
     win = IngressMainWindow()

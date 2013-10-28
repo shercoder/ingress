@@ -1,17 +1,56 @@
 #!/usr/bin/python
 
 from whoosh.fields import SchemaClass, TEXT, KEYWORD, ID, STORED
-from whoosh.index import create_in
+from whoosh import index, writing
+from whoosh.qparser import QueryParser
 from gi.repository import Gtk
+from constants import INDEX_DIR
+import os
 
 class FilenameSchema(SchemaClass):
     filepath = ID(stored=True, unique=True)
     filename = TEXT(stored=True)
     tags = KEYWORD(stored=True, lowercase=True, scorable=True)
 
+class IndexManager(object):
+    def create_index(self):
+        self.create_index_dir()
+        return index.create_in(INDEX_DIR, FilenameSchema)
 
-# create schema
-# schema = create_in("/dir/path/to/store/index", FilenameSchema)
+    def open_index(self):
+        if index.exists_in(INDEX_DIR):
+            return index.open_dir(INDEX_DIR)
+        else:
+            return self.create_index()
+
+    def create_index_dir(self):
+        if not os.path.exists(INDEX_DIR):
+            os.mkdir(INDEX_DIR)
+
+    def clear_index(self):
+        with self.open_index().writer() as writer:
+            writer.mergetype = writing.CLEAR
+
+    def add_new_document(self, path, alltags):
+        writer = self.open_index().writer()
+        basename = os.path.basename(path)
+        writer.add_document(filepath=unicode(path), filename=unicode(basename), tags=unicode(alltags))
+        writer.commit()
+
+    def update_document(self, path, alltags):
+        writer = self.open_index().writer()
+        basename = os.path.basename(path)
+        writer.update_document(filepath=unicode(path), filename=unicode(basename), tags=unicode(alltags))
+        writer.commit()
+
+    def search_documents(self, query, field="tags"):
+        index = self.open_index()
+        qp = QueryParser("tags", schema=index.schema)
+        q = qp.parse(unicode(query))
+        with index.searcher() as searcher:
+            results = searcher.search(q, limit=None)
+            new_results = [hit.fields() for hit in results]
+        return new_results
 
 class TagLabel(Gtk.Box):
     """docstring for TagLabel"""

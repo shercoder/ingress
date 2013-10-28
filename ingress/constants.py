@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 
-from os.path import expanduser
+from os.path import expanduser, join
 
 HOME = expanduser("~")
+INDEX_DIR = join(HOME, ".ingress_index/")
 
 # dimensions
 WINDOW_WIDTH = 800

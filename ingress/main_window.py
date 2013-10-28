@@ -48,14 +48,17 @@ class IngressMainWindow(Gtk.Window):
         self._paned = Gtk.Paned.new(Gtk.Orientation.HORIZONTAL)
 
         self.create_tree()
-        scrolled_window = Gtk.ScrolledWindow()
-        scrolled_window.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scrolled_window.add(self._treeview)
-        self._paned.pack1(scrolled_window, shrink=False)
+        scrolled_window_left = Gtk.ScrolledWindow()
+        scrolled_window_left.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled_window_left.add(self._treeview)
+        self._paned.pack1(scrolled_window_left, shrink=False)
         Gtk.Widget.set_size_request(self._paned.get_child1(), LEFT_PANED_WIDTH, -1)
 
         # pack 2
-        self._paned.pack2(self.create_notebook())
+        scrolled_window_right = Gtk.ScrolledWindow()
+        scrolled_window_right.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        scrolled_window_right.add_with_viewport(self.create_notebook())
+        self._paned.pack2(scrolled_window_right, shrink=False)
         self._window_vbox.pack_start(self._paned, True, True, True)
 
     def add_toolbar(self):
@@ -102,6 +105,7 @@ class IngressMainWindow(Gtk.Window):
         filename_label = Util.create_label("Name:")
         filename = Util.create_info_label(os.path.basename(filepath))
         filesize_label = Util.create_label("Filesize:")
+
         filesize = Gtk.Button(label=filesize)
         location_label = Util.create_label("Location:")
         location = Util.create_info_label(os.path.dirname(filepath))
@@ -197,6 +201,22 @@ class IngressMainWindow(Gtk.Window):
         tagging_box.pack_start(tag_entry, False, False, True)
         tagging_box.pack_start(add_tag_button, False, False, True)
         grid.attach(tagging_box, 0, 10, 3, 3)
+
+        tags = self._index_manager.get_tags_for_filepath(filepath)
+        if tags:
+            tags_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            tags = tags = str(tags).split(' ')
+            row = 14
+            for i, tag in enumerate(tags):
+                if i%5 == 0:
+                    grid.attach(tags_box, 0, row, 1, 1)
+                    tags_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+                    row += 1
+                tag_label = TagLabel(tag)
+                tag_label.connect("close-clicked", self.on_tag_label_close_clicked, filepath, tags_box)
+                tags_box.pack_start(tag_label, False, False, True)
+            grid.attach(tags_box, 0, row, 1, 1)
+
 
     def generate_git_info(self, grid, filepath):
         repo = Repository(filepath)
@@ -327,6 +347,11 @@ class IngressMainWindow(Gtk.Window):
         filepath, entry = user_data
         tags = entry.get_text()
         self._index_manager.update_document(filepath, tags)
+
+    def on_tag_label_close_clicked(self, tag_label, filepath, box):
+        self._index_manager.delete_tag(filepath, tag_label.label.get_text())
+        tag_label.destroy()
+        box.show_all()
 
 
 def main():

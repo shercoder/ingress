@@ -3,7 +3,7 @@
 from whoosh.fields import SchemaClass, TEXT, KEYWORD, ID, STORED
 from whoosh import index, writing
 from whoosh.qparser import QueryParser
-from gi.repository import Gtk
+from gi.repository import Gtk, GObject
 from constants import INDEX_DIR
 import os
 
@@ -45,23 +45,40 @@ class IndexManager(object):
 
     def search_documents(self, query, field="tags"):
         index = self.open_index()
-        qp = QueryParser("tags", schema=index.schema)
+        qp = QueryParser(field, schema=index.schema)
         q = qp.parse(unicode(query))
         with index.searcher() as searcher:
             results = searcher.search(q, limit=None)
             new_results = [hit.fields() for hit in results]
         return new_results
 
+    def get_tags_for_filepath(self, filepath):
+        index = self.open_index()
+        with index.searcher() as searcher:
+            result = searcher.document(filepath=filepath)
+        if result:
+            return result['tags']
+        return None
+
+    def delete_tag(self, filepath, tag):
+        tags = self.get_tags_for_filepath(filepath)
+        if tags:
+            tags = str(tags).replace(tag, '').strip()
+            self.update_document(filepath, tags)
+
+
 class TagLabel(Gtk.Box):
-    """docstring for TagLabel"""
+    __gsignals__ = {
+        "close-clicked": (GObject.SIGNAL_RUN_FIRST, GObject.TYPE_NONE, ()),
+    }
     def __init__(self, label_text):
         Gtk.Box.__init__(self)
         self.set_orientation(Gtk.Orientation.HORIZONTAL)
         self.set_spacing(1)
 
         # label
-        label = Gtk.Label(label_text)
-        self.pack_start(label, False, True, True)
+        self.label = Gtk.Label(label_text)
+        self.pack_start(self.label, False, True, True)
 
         # close button
         button = Gtk.Button()
@@ -86,4 +103,4 @@ class TagLabel(Gtk.Box):
         self.show_all()
 
     def button_clicked(self, button, data=None):
-            self.emit("clicked")
+            self.emit("close-clicked")

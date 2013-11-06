@@ -7,17 +7,17 @@ from constants import *
 
 class Util(object):
     @staticmethod
-    def create_label(label_name):
+    def create_label(label_name, align=Gtk.Align.END):
         markup = "<b>%s</b>" % label_name
         label = Gtk.Label(label=markup)
         label.set_use_markup(True)
-        label.set_alignment(0.8, 0)
+        label.set_halign(align)
         return label
 
     @staticmethod
-    def create_info_label(label_name):
+    def create_info_label(label_name,  align=Gtk.Align.START):
         label = Gtk.Label(label=label_name)
-        label.set_alignment(1, 0)
+        label.set_halign(align)
         return label
 
     @staticmethod

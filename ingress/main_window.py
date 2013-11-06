@@ -90,7 +90,7 @@ class IngressMainWindow(Gtk.Window):
 
     def create_general_tab(self, filepath):
         # General Page
-        grid = Gtk.Grid(row_spacing=2, column_spacing=2, column_homogeneous=True)
+        grid = Gtk.Grid(row_spacing=2, column_spacing=10)
         grid.set_name('GeneralTab')
         self._notebook.append_page(grid, Gtk.Label(label="General"))
 
@@ -107,6 +107,7 @@ class IngressMainWindow(Gtk.Window):
         filesize_label = Util.create_label("Filesize:")
 
         filesize = Gtk.Button(label=filesize)
+        filesize.set_size_request(70, 30)
         location_label = Util.create_label("Location:")
         location = Util.create_info_label(os.path.dirname(filepath))
         last_modified_label = Util.create_label("Last Modified:")

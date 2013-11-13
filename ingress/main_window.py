@@ -222,39 +222,47 @@ class IngressMainWindow(Gtk.Window):
     def generate_git_info(self, grid, filepath):
         repo = Repository(filepath)
 
-        git_label = Util.create_label("<big><b><u>Git Repository Information</u></b></big>")
+        git_label = Util.create_label("<big><u>Git Repository Information</u></big>")
         git_label.set_use_markup(True)
         grid.attach(git_label, 0, 10, 1, 1)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
+        # Current branch name
+        cur_branch_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        cur_branch_label = Util.create_label("Current Branch: ")
+        cur_branch_name = Util.create_info_label(repo.get_cur_branch())
+        cur_branch_hbox.pack_start(cur_branch_label, False, False, 1)
+        cur_branch_hbox.pack_start(cur_branch_name, False, False, 1)
+        vbox.pack_start(cur_branch_hbox, False, False, 1)
+
         # branch list combo box
         branch_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         branches_label = Util.create_label("All Branches: ")
-        branch_hbox.pack_start(branches_label, False, False, True)
+        branch_hbox.pack_start(branches_label, False, False, 1)
         branch_combo = Gtk.ComboBox.new_with_model(repo.branch_list_store())
         renderer_text = Gtk.CellRendererText()
         branch_combo.pack_start(renderer_text, True)
         branch_combo.add_attribute(renderer_text, "text", 0)
-        branch_hbox.pack_start(branch_combo, False, False, True)
-        vbox.pack_start(branch_hbox, False, False, True)
+        branch_hbox.pack_start(branch_combo, False, False, 1)
+        vbox.pack_start(branch_hbox, False, False, 1)
 
         # total commits
         count_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         count_label = Util.create_label("Total Commits:")
-        count_hbox.pack_start(count_label, False, False, True)
+        count_hbox.pack_start(count_label, False, False, 1)
         count_entry = Gtk.Entry()
         count_entry. set_max_length(4)
         count_entry.set_width_chars(4)
         count_entry.set_text(str(repo.commit_count()))
         count_entry.set_editable(False)
-        count_hbox.pack_start(count_entry, False, False, True)
-        vbox.pack_start(count_hbox, False, False, True)
+        count_hbox.pack_start(count_entry, False, False, 1)
+        vbox.pack_start(count_hbox, False, False, 1)
 
         # status button
         status_btn = Gtk.Button(label="Git Status")
         status_btn.connect("clicked", self.create_git_status_tab, repo)
-        vbox.pack_start(status_btn, False, False, True)
+        vbox.pack_start(status_btn, False, False, 1)
 
         # add vbox to the grid
         grid.attach(vbox, 0, 12, 1, 1)
@@ -289,8 +297,8 @@ class IngressMainWindow(Gtk.Window):
     def create_git_status_tab(self, button, repo):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        wt_label = Util.create_label("<big>Working Dir Status</big>")
-        vbox.pack_start(wt_label, False, False, True)
+        # wt_label = Util.create_label("<big>Git Status</big>")
+        # vbox.pack_start(wt_label, False, False, 1)
 
         # Display WT info
         wt_status_code = {
@@ -298,13 +306,21 @@ class IngressMainWindow(Gtk.Window):
             pygit2.GIT_STATUS_WT_MODIFIED: "modified:",
             pygit2.GIT_STATUS_WT_DELETED: "deleted:"
         }
+
+        index_status_code = {
+            pygit2.GIT_STATUS_INDEX_NEW: "new:",
+            pygit2.GIT_STATUS_INDEX_MODIFIED: "modified:",
+            pygit2.GIT_STATUS_INDEX_DELETED: "deleted:"
+        }
+
+        # working dir
         store = Gtk.ListStore(str, str)
         files = repo.get_status_wt()
         for filename in files:
             store.append([wt_status_code[files[filename]], filename])
 
         tree = Gtk.TreeView(store)
-        column = Gtk.TreeViewColumn("Filename and  Status")
+        column = Gtk.TreeViewColumn("Working Directory")
         filename = Gtk.CellRendererText()
         file_status = Gtk.CellRendererText()
         column.pack_start(file_status, True)
@@ -313,7 +329,27 @@ class IngressMainWindow(Gtk.Window):
         column.add_attribute(filename, "text", 1)
         tree.append_column(column)
 
-        self._notebook.append_page(tree, Gtk.Label("Git Status"))
+        vbox.pack_start(tree, False, False, 5)
+
+        # Index
+        store = Gtk.ListStore(str, str)
+        files = repo.get_status_index()
+        for filename in files:
+            store.append([index_status_code[files[filename]], filename])
+
+        tree = Gtk.TreeView(store)
+        column = Gtk.TreeViewColumn("Index Directory")
+        filename = Gtk.CellRendererText()
+        file_status = Gtk.CellRendererText()
+        column.pack_start(file_status, True)
+        column.pack_start(filename, True)
+        column.add_attribute(file_status, "text", 0)
+        column.add_attribute(filename, "text", 1)
+        tree.append_column(column)
+
+        vbox.pack_start(tree, False, False, 5)
+
+        self._notebook.append_page(vbox, Gtk.Label("Git Status"))
         self._notebook.show_all()
 
     def on_search_enter_key(self, entry):

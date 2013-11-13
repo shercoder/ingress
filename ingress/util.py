@@ -12,6 +12,7 @@ class Util(object):
         label = Gtk.Label(label=markup)
         label.set_use_markup(True)
         label.set_halign(align)
+        # label.set_justify(Gtk.Justification.RIGHT)
         return label
 
     @staticmethod
@@ -96,3 +97,19 @@ class Util(object):
     def clear_notebook(notebook):
         for page in notebook.get_children():
                 notebook.remove(page)
+
+
+# class KeyValueBox(Gtk.Alignment):
+#     def __init__(self, key, value):
+#         super(KeyValueBox, self).__init__()
+#         self.set(1, 0, 0, 0)
+#         self.set_homogeneous(True)
+#         self.pack_start(key, True, True, 10)
+#         self.pack_start(value, True, True, 0)
+
+class KeyValueBox(Gtk.Box):
+    def __init__(self, key, value):
+        super(KeyValueBox, self).__init__((Gtk.Orientation.HORIZONTAL, 5))
+        self.set_homogeneous(True)
+        self.pack_start(key, True, True, 10)
+        self.pack_start(value, True, True, 0)

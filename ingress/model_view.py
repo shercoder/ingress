@@ -57,15 +57,21 @@ class IngressTreeView(Gtk.TreeView):
         self.connect("row-collapsed", self.on_row_collapsed)
 
         # create pop up menu on right click
-        self.add_popup_menu()
         self.connect("button_press_event",self.on_right_click)
 
-    def add_popup_menu(self):
+    def add_popup_menu(self, filepath):
         self.popup = Gtk.Menu()
         # self.popup.append(Gtk.MenuItem(label="Cut"))
         # self.popup.append(Gtk.MenuItem(label="Copy"))
         # self.popup.append(Gtk.MenuItem(label="Paste"))
         # self.popup.append(Gtk.MenuItem(label="Rename"))
+
+        # Open files
+        if os.path.isfile(filepath):
+            open_file_label = Gtk.MenuItem(label="Open file")
+            open_file_label.connect("activate", self.on_activate_open_file, filepath)
+            self.popup.append(open_file_label)
+
 
         # send file to trash
         move2trash = Gtk.MenuItem(label="Move To Trash")
@@ -88,14 +94,16 @@ class IngressTreeView(Gtk.TreeView):
 
     def on_right_click(self, treeview, event):
         if event.button == 3: # right click
-                # model, path = treeview.get_path_at_pos(int(event.x), int(event.y))
-                pthinfo = treeview.get_path_at_pos(event.x, event.y)
-                if pthinfo is not None:
-                    path, col, cellx, celly = pthinfo
-                    treeview.grab_focus()
-                    treeview.set_cursor(path, col, 0)
-                    self.popup.popup(None, None, None, None, event.button, event.time)
-                return True
+            # model, path = treeview.get_path_at_pos(int(event.x), int(event.y))
+            pthinfo = treeview.get_path_at_pos(event.x, event.y)
+            if pthinfo is not None:
+                path, col, cellx, celly = pthinfo
+                treeview.grab_focus()
+                treeview.set_cursor(path, col, 0)
+                iter = self.get_model().get_iter(path)
+                self.add_popup_menu(self.get_model()[iter][1])
+                self.popup.popup(None, None, None, None, event.button, event.time)
+            return True
 
     def on_activate_move_2_trash(self, widget):
         selection = self.get_selection()
@@ -119,4 +127,13 @@ class IngressTreeView(Gtk.TreeView):
                 self.get_model()[path][0] = text
                 self.get_model()[path][1] = new_path
                 Util.rename_file(old_path, new_path)
+
+    def on_activate_open_file(self, widget, filepath):
+        import subprocess
+        if os.sys.platform.startswith('darwin'):
+            subprocess.call(('open', filepath))
+        elif os.name == 'nt':
+            os.startfile(filepath)
+        elif os.name == 'posix':
+            subprocess.call(('xdg-open', filepath))
 

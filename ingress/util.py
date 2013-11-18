@@ -4,6 +4,7 @@ from gi.repository import Gtk
 import os, pwd, grp, stat
 from pygit2 import Repository as _Repository
 from constants import *
+import shutil
 
 class Util(object):
     @staticmethod
@@ -74,6 +75,43 @@ class Util(object):
             ((mode & stat.S_IRWXG) >> 3),
             (mode & stat.S_IRWXO)
         )
+
+    @staticmethod
+    def cp_file(src, dst):
+        if os.path.isdir(src):
+            try:
+                shutil.copytree(src, dst)
+                return True;
+            except Error:
+                return False;
+        else:
+            try:
+                shutil.copy2(src, dst)
+                return True;
+            except IOError:
+                return False;
+
+    @staticmethod
+    def rename_file(src, dst):
+        if os.path.isdir(src):
+            if not os.path.exists(dst):
+                os.mkdir(dst)
+            for src_dir, dirs, files in os.walk(src):
+                dst_dir = src_dir.replace(src, dst)
+                if not os.path.exists(dst_dir):
+                    os.mkdir(dst_dir)
+                for file_ in files:
+                    src_file = os.path.join(src_dir, file_)
+                    dst_file = os.path.join(dst_dir, file_)
+                    if os.path.exists(dst_file):
+                        os.remove(dst_file)
+                    shutil.move(src_file, dst_dir)
+            os.rmdir(src)
+        else:
+            try:
+                shutil.move(src, dst)
+            except IOError:
+                pass
 
     @staticmethod
     def is_integer(entry):

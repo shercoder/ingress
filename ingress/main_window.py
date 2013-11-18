@@ -12,12 +12,24 @@ import pygit2
 import fnmatch
 
 class IngressMainWindow(Gtk.Window):
+    # TARGETS = [
+    #     ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0),
+    #     ('text/plain', 0, 1),
+    #     ('TEXT', 0, 2),
+    #     ('STRING', 0, 3),
+    # ]
+
+    TARGETS = [
+        ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0)
+    ]
+
     def __init__(self):
         super(IngressMainWindow, self).__init__(type=Gtk.WindowType.TOPLEVEL, title="Ingress")
         self.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_border_width(6)
         self.set_icon_name('ingress')
+        self.set_icon_from_file('system_file_manager.png')
 
         # Vertical box
         self._window_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -25,6 +37,9 @@ class IngressMainWindow(Gtk.Window):
 
         # Toolbar
         self.add_toolbar()
+
+        # Show Hidden Checkbox
+        self.add_show_hidden_chkbox()
 
         #window paned
         self.add_paned()
@@ -77,11 +92,30 @@ class IngressMainWindow(Gtk.Window):
         toolitem.add(self._search_bar)
         self._toolbar.insert(toolitem, -1)
 
+    def add_show_hidden_chkbox(self):
+        toolitem = Gtk.ToolItem()
+        self._show_hidden_chkbox = Gtk.CheckButton(label="Show Hidden Files")
+        toolitem.add(self._show_hidden_chkbox)
+        self._toolbar.insert(toolitem, -1)
+        self._show_hidden_chkbox.connect("toggled", self.on_show_hidden_chkbox, "Show Hidden")
+
     def create_tree(self):
         self._store = IngressTreeStore()
         self._treeview = IngressTreeView(self._store)
         self._treeview.set_enable_tree_lines(True)
         self._treeview.get_selection().connect("changed", self.on_tree_selection_changed)
+
+        # drag and drop setting
+        self._treeview.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
+                                                                self.TARGETS,
+                                                                Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
+        self._treeview.enable_model_drag_dest(self.TARGETS, Gdk.DragAction.DEFAULT)
+
+        self._treeview.drag_dest_add_text_targets()
+        self._treeview.drag_source_add_text_targets()
+
+        self._treeview.connect("drag_data_get", self._dnd_get_data)
+        self._treeview.connect("drag_data_received", self._dnd_data_received)
 
     def create_notebook(self):
         self._notebook = Gtk.Notebook()
@@ -280,6 +314,9 @@ class IngressMainWindow(Gtk.Window):
             self.create_permissions_tab(model[treeiter][1])
             self._notebook.show_all()
 
+    def on_show_hidden_chkbox(self, button, name):
+        self._treeview.get_model().set_show_hidden(button.get_active())
+
     def on_clicked_filesize_button(self, button):
         (model, sel_iter) = self._treeview.get_selection().get_selected()
         if os.path.isdir(model[sel_iter][1]):
@@ -390,6 +427,87 @@ class IngressMainWindow(Gtk.Window):
         tag_label.destroy()
         box.show_all()
 
+    # drag and drop callbacks
+    def _dnd_get_data(self, treeview, context, selection, targetType, eventTime):
+        treeselection = treeview.get_selection()
+        model, iterator = treeselection.get_selected()
+        data = model.get_value(iterator, 1)
+        selection.set(selection.get_target(), 8, data)
+
+    def _dnd_data_received(self, treeview, context, x, y, selection, targetType, time):
+        model = treeview.get_model()
+        data = selection.get_data()
+        drop_info = treeview.get_dest_row_at_pos(x, y)
+        if drop_info:
+            path, position = drop_info
+            iterator = model.get_iter(path)
+            if not os.path.isdir(model[iterator][1]):
+                iterator = model.iter_parent(iterator)
+            dest_path = model[iterator][1]
+
+            # Only move on valid move
+            if self.can_move_file(data, dest_path):
+                new_filepath = os.path.join(dest_path, os.path.basename(data))
+                if os.path.exists(new_filepath):
+                    # Ask user to overwrite or rename new file
+                    if self.overwrite_file_dialog():
+                        model.append(iterator, [os.path.basename(data), new_filepath])
+                        Util.cp_file(data, new_filepath)
+                    else:
+                        text = self.rename_file_dialog()
+                        if text is not None and not os.path.exists(os.path.join(dest_path, text)):
+                            new_filepath = os.path.join(dest_path, text)
+                            model.append(iterator, [text, new_filepath])
+                            Util.cp_file(data, new_filepath)
+                else:
+                    new_filepath = os.path.join(dest_path, os.path.basename(data))
+                    model.append(iterator, [os.path.basename(data), new_filepath])
+                    Util.cp_file(data, new_filepath)
+
+        if Gdk.DragAction.MOVE == context.get_actions():
+            context.finish(True, True, etime)
+        return
+
+    # Drag and Drop Utility functions
+    def can_move_file(self, src, dest):
+        if src == dest: return False                                # if both paths are same
+        if os.path.dirname(src) == dest: return False   # if from and to locations are same (same dir)
+        # TODO: check if user has the write permissions to move
+        return True
+
+    def overwrite_file_dialog(self):
+        dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            Gtk.MessageType.QUESTION,
+            Gtk.ButtonsType.YES_NO, "File already exists!")
+        dialog.format_secondary_text("Would you like to overwrite existing file?")
+        dialog.set_title("Rename")
+
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            return True
+        elif response == Gtk.ResponseType.NO:
+            return False
+
+    def rename_file_dialog(self):
+        dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            Gtk.MessageType.QUESTION,
+            Gtk.ButtonsType.OK_CANCEL, "Would you like to rename new file before moving?")
+        dialog.set_title("Rename")
+
+        box = dialog.get_content_area()
+        userEntry = Gtk.Entry()
+        userEntry.set_size_request(150,0)
+        box.pack_end(userEntry, False, False, 0)
+        dialog.show_all()
+
+        response = dialog.run()
+        text = userEntry.get_text()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and (text != ''):
+            return text
+        elif response == Gtk.ResponseType.CANCEL:
+            return None
 
 def main():
     win = IngressMainWindow()

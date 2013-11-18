@@ -4,11 +4,13 @@ from gi.repository import Gtk, Gdk
 from send2trash import send2trash
 from constants import *
 import os
+from util import Util
 
 class IngressTreeStore(Gtk.TreeStore):
     def __init__(self):
         super(IngressTreeStore, self).__init__(str, str)
         self.generate_tree(HOME)
+        self._show_hidden = False
 
 
     def generate_tree(self, path, parent=None):
@@ -21,7 +23,7 @@ class IngressTreeStore(Gtk.TreeStore):
             for filename in sorted(os.listdir(path)):
                 fullpath = os.path.join(path, filename)
 
-                if filename.startswith('.'): continue
+                if not self._show_hidden and filename.startswith('.'): continue
                 if os.path.isdir(fullpath):
                     child_parent = self.append(parent, [filename, fullpath])
                     self.append(child_parent, None)
@@ -34,14 +36,11 @@ class IngressTreeStore(Gtk.TreeStore):
             for filename, filepath in files:
                 self.append(None, [filename, filepath])
 
-    # Override draggable and droppable methods from Gtk.TreeDragSource and Gtk.TreeDragDest
-    def row_draggable(self, path):
-        print(path)
-        iter = self.get_iter(path)
-        print(iter)
+    def set_show_hidden(self, value):
+        self._show_hidden = value
 
-    def row_drop_possible(self, dest_path, selection_data):
-        print(dest_path)
+    def get_show_hidden(self):
+        return self._show_hidden
 
 class IngressTreeView(Gtk.TreeView):
     def __init__(self, treestore):
@@ -49,15 +48,9 @@ class IngressTreeView(Gtk.TreeView):
         self.set_name('IngressTreeView')
         self.set_headers_visible(False)
 
-
-        self.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK, [('text/plain', 0, 0)], Gdk.DragAction.MOVE)
-        self.enable_model_drag_dest([('text/plain', 0, 0)], Gdk.DragAction.DEFAULT)
-
-        self.connect("drag_data_get", self._dnd_get_data)
-        self.connect("drag_data_received", self._dnd_data_received)
-        # self.connect("drag_end", )
-
         renderer = Gtk.CellRendererText()
+        renderer.set_property("editable", True)
+        renderer.connect("edited", self.on_filename_edited)
         column = Gtk.TreeViewColumn(None, renderer, text=0)
         self.append_column(column)
         self.connect("test-expand-row", self.on_row_expanded)
@@ -115,26 +108,15 @@ class IngressTreeView(Gtk.TreeView):
             self.collapse_row(parent_path)
             self.expand_to_path(parent_path)
 
-    # drag and drop callbacks
-    def _dnd_get_data(self, view, context, selection, targetType, eventTime):
-        treeselection = view.get_selection()
-        model, iter = treeselection.get_selected()
-        data = model.get_value(iter, 0)
-        selection.set(selection.target, 8, data)
+    def on_filename_edited(self, widget, path, text):
+        old_path = self.get_model()[path][1]
 
-    def _dnd_data_received(self, widget, context, x, y, selection, targetType, time):
-        model = treeview.get_model()
-        data = selection.data
-        drop_info = treeview.get_dest_row_at_pos(x, y)
-        if drop_info:
-            path, position = drop_info
-            iter = model.get_iter(path)
-            if (position == gtk.TREE_VIEW_DROP_BEFORE or position == gtk.TREE_VIEW_DROP_INTO_OR_BEFORE):
-                model.insert_before(iter, [data])
-            else:
-                model.insert_after(iter, [data])
-        else:
-            model.append([data])
-            if context.action == gtk.gdk.ACTION_MOVE:
-                context.finish(True, True, etime)
+        # cannot change user's home dir name
+        if old_path is not HOME:
+            parent_path = os.path.dirname(old_path)
+            new_path = os.path.join(parent_path, text)
+            if not os.path.exists(new_path):
+                self.get_model()[path][0] = text
+                self.get_model()[path][1] = new_path
+                Util.rename_file(old_path, new_path)
 

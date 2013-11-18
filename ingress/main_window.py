@@ -12,12 +12,24 @@ import pygit2
 import fnmatch
 
 class IngressMainWindow(Gtk.Window):
+    # TARGETS = [
+    #     ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0),
+    #     ('text/plain', 0, 1),
+    #     ('TEXT', 0, 2),
+    #     ('STRING', 0, 3),
+    # ]
+
+    TARGETS = [
+        ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0)
+    ]
+
     def __init__(self):
         super(IngressMainWindow, self).__init__(type=Gtk.WindowType.TOPLEVEL, title="Ingress")
         self.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_border_width(6)
         self.set_icon_name('ingress')
+        self.set_icon_from_file('system_file_manager.png')
 
         # Vertical box
         self._window_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -25,6 +37,9 @@ class IngressMainWindow(Gtk.Window):
 
         # Toolbar
         self.add_toolbar()
+
+        # Show Hidden Checkbox
+        self.add_show_hidden_chkbox()
 
         #window paned
         self.add_paned()
@@ -77,11 +92,30 @@ class IngressMainWindow(Gtk.Window):
         toolitem.add(self._search_bar)
         self._toolbar.insert(toolitem, -1)
 
+    def add_show_hidden_chkbox(self):
+        toolitem = Gtk.ToolItem()
+        self._show_hidden_chkbox = Gtk.CheckButton(label="Show Hidden Files")
+        toolitem.add(self._show_hidden_chkbox)
+        self._toolbar.insert(toolitem, -1)
+        self._show_hidden_chkbox.connect("toggled", self.on_show_hidden_chkbox, "Show Hidden")
+
     def create_tree(self):
         self._store = IngressTreeStore()
         self._treeview = IngressTreeView(self._store)
         self._treeview.set_enable_tree_lines(True)
         self._treeview.get_selection().connect("changed", self.on_tree_selection_changed)
+
+        # drag and drop setting
+        self._treeview.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
+                                                                self.TARGETS,
+                                                                Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
+        self._treeview.enable_model_drag_dest(self.TARGETS, Gdk.DragAction.DEFAULT)
+
+        self._treeview.drag_dest_add_text_targets()
+        self._treeview.drag_source_add_text_targets()
+
+        self._treeview.connect("drag_data_get", self._dnd_get_data)
+        self._treeview.connect("drag_data_received", self._dnd_data_received)
 
     def create_notebook(self):
         self._notebook = Gtk.Notebook()
@@ -90,7 +124,7 @@ class IngressMainWindow(Gtk.Window):
 
     def create_general_tab(self, filepath):
         # General Page
-        grid = Gtk.Grid(row_spacing=2, column_spacing=2, column_homogeneous=True)
+        grid = Gtk.Grid(row_spacing=2, column_spacing=10)
         grid.set_name('GeneralTab')
         self._notebook.append_page(grid, Gtk.Label(label="General"))
 
@@ -107,6 +141,7 @@ class IngressMainWindow(Gtk.Window):
         filesize_label = Util.create_label("Filesize:")
 
         filesize = Gtk.Button(label=filesize)
+        filesize.set_size_request(70, 30)
         location_label = Util.create_label("Location:")
         location = Util.create_info_label(os.path.dirname(filepath))
         last_modified_label = Util.create_label("Last Modified:")
@@ -221,39 +256,47 @@ class IngressMainWindow(Gtk.Window):
     def generate_git_info(self, grid, filepath):
         repo = Repository(filepath)
 
-        git_label = Util.create_label("<big><b><u>Git Repository Information</u></b></big>")
+        git_label = Util.create_label("<big><u>Git Repository Information</u></big>")
         git_label.set_use_markup(True)
         grid.attach(git_label, 0, 10, 1, 1)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
+        # Current branch name
+        cur_branch_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        cur_branch_label = Util.create_label("Current Branch: ")
+        cur_branch_name = Util.create_info_label(repo.get_cur_branch())
+        cur_branch_hbox.pack_start(cur_branch_label, False, False, 1)
+        cur_branch_hbox.pack_start(cur_branch_name, False, False, 1)
+        vbox.pack_start(cur_branch_hbox, False, False, 1)
+
         # branch list combo box
         branch_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         branches_label = Util.create_label("All Branches: ")
-        branch_hbox.pack_start(branches_label, False, False, True)
+        branch_hbox.pack_start(branches_label, False, False, 1)
         branch_combo = Gtk.ComboBox.new_with_model(repo.branch_list_store())
         renderer_text = Gtk.CellRendererText()
         branch_combo.pack_start(renderer_text, True)
         branch_combo.add_attribute(renderer_text, "text", 0)
-        branch_hbox.pack_start(branch_combo, False, False, True)
-        vbox.pack_start(branch_hbox, False, False, True)
+        branch_hbox.pack_start(branch_combo, False, False, 1)
+        vbox.pack_start(branch_hbox, False, False, 1)
 
         # total commits
         count_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         count_label = Util.create_label("Total Commits:")
-        count_hbox.pack_start(count_label, False, False, True)
+        count_hbox.pack_start(count_label, False, False, 1)
         count_entry = Gtk.Entry()
         count_entry. set_max_length(4)
         count_entry.set_width_chars(4)
         count_entry.set_text(str(repo.commit_count()))
         count_entry.set_editable(False)
-        count_hbox.pack_start(count_entry, False, False, True)
-        vbox.pack_start(count_hbox, False, False, True)
+        count_hbox.pack_start(count_entry, False, False, 1)
+        vbox.pack_start(count_hbox, False, False, 1)
 
         # status button
         status_btn = Gtk.Button(label="Git Status")
         status_btn.connect("clicked", self.create_git_status_tab, repo)
-        vbox.pack_start(status_btn, False, False, True)
+        vbox.pack_start(status_btn, False, False, 1)
 
         # add vbox to the grid
         grid.attach(vbox, 0, 12, 1, 1)
@@ -270,6 +313,9 @@ class IngressMainWindow(Gtk.Window):
             self.create_general_tab(model[treeiter][1])
             self.create_permissions_tab(model[treeiter][1])
             self._notebook.show_all()
+
+    def on_show_hidden_chkbox(self, button, name):
+        self._treeview.get_model().set_show_hidden(button.get_active())
 
     def on_clicked_filesize_button(self, button):
         (model, sel_iter) = self._treeview.get_selection().get_selected()
@@ -288,8 +334,8 @@ class IngressMainWindow(Gtk.Window):
     def create_git_status_tab(self, button, repo):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        wt_label = Util.create_label("<big>Working Dir Status</big>")
-        vbox.pack_start(wt_label, False, False, True)
+        # wt_label = Util.create_label("<big>Git Status</big>")
+        # vbox.pack_start(wt_label, False, False, 1)
 
         # Display WT info
         wt_status_code = {
@@ -297,13 +343,21 @@ class IngressMainWindow(Gtk.Window):
             pygit2.GIT_STATUS_WT_MODIFIED: "modified:",
             pygit2.GIT_STATUS_WT_DELETED: "deleted:"
         }
+
+        index_status_code = {
+            pygit2.GIT_STATUS_INDEX_NEW: "new:",
+            pygit2.GIT_STATUS_INDEX_MODIFIED: "modified:",
+            pygit2.GIT_STATUS_INDEX_DELETED: "deleted:"
+        }
+
+        # working dir
         store = Gtk.ListStore(str, str)
         files = repo.get_status_wt()
         for filename in files:
             store.append([wt_status_code[files[filename]], filename])
 
         tree = Gtk.TreeView(store)
-        column = Gtk.TreeViewColumn("Filename and  Status")
+        column = Gtk.TreeViewColumn("Working Directory")
         filename = Gtk.CellRendererText()
         file_status = Gtk.CellRendererText()
         column.pack_start(file_status, True)
@@ -312,7 +366,27 @@ class IngressMainWindow(Gtk.Window):
         column.add_attribute(filename, "text", 1)
         tree.append_column(column)
 
-        self._notebook.append_page(tree, Gtk.Label("Git Status"))
+        vbox.pack_start(tree, False, False, 5)
+
+        # Index
+        store = Gtk.ListStore(str, str)
+        files = repo.get_status_index()
+        for filename in files:
+            store.append([index_status_code[files[filename]], filename])
+
+        tree = Gtk.TreeView(store)
+        column = Gtk.TreeViewColumn("Index Directory")
+        filename = Gtk.CellRendererText()
+        file_status = Gtk.CellRendererText()
+        column.pack_start(file_status, True)
+        column.pack_start(filename, True)
+        column.add_attribute(file_status, "text", 0)
+        column.add_attribute(filename, "text", 1)
+        tree.append_column(column)
+
+        vbox.pack_start(tree, False, False, 5)
+
+        self._notebook.append_page(vbox, Gtk.Label("Git Status"))
         self._notebook.show_all()
 
     def on_search_enter_key(self, entry):
@@ -353,6 +427,87 @@ class IngressMainWindow(Gtk.Window):
         tag_label.destroy()
         box.show_all()
 
+    # drag and drop callbacks
+    def _dnd_get_data(self, treeview, context, selection, targetType, eventTime):
+        treeselection = treeview.get_selection()
+        model, iterator = treeselection.get_selected()
+        data = model.get_value(iterator, 1)
+        selection.set(selection.get_target(), 8, data)
+
+    def _dnd_data_received(self, treeview, context, x, y, selection, targetType, time):
+        model = treeview.get_model()
+        data = selection.get_data()
+        drop_info = treeview.get_dest_row_at_pos(x, y)
+        if drop_info:
+            path, position = drop_info
+            iterator = model.get_iter(path)
+            if not os.path.isdir(model[iterator][1]):
+                iterator = model.iter_parent(iterator)
+            dest_path = model[iterator][1]
+
+            # Only move on valid move
+            if self.can_move_file(data, dest_path):
+                new_filepath = os.path.join(dest_path, os.path.basename(data))
+                if os.path.exists(new_filepath):
+                    # Ask user to overwrite or rename new file
+                    if self.overwrite_file_dialog():
+                        model.append(iterator, [os.path.basename(data), new_filepath])
+                        Util.cp_file(data, new_filepath)
+                    else:
+                        text = self.rename_file_dialog()
+                        if text is not None and not os.path.exists(os.path.join(dest_path, text)):
+                            new_filepath = os.path.join(dest_path, text)
+                            model.append(iterator, [text, new_filepath])
+                            Util.cp_file(data, new_filepath)
+                else:
+                    new_filepath = os.path.join(dest_path, os.path.basename(data))
+                    model.append(iterator, [os.path.basename(data), new_filepath])
+                    Util.cp_file(data, new_filepath)
+
+        if Gdk.DragAction.MOVE == context.get_actions():
+            context.finish(True, True, etime)
+        return
+
+    # Drag and Drop Utility functions
+    def can_move_file(self, src, dest):
+        if src == dest: return False                                # if both paths are same
+        if os.path.dirname(src) == dest: return False   # if from and to locations are same (same dir)
+        # TODO: check if user has the write permissions to move
+        return True
+
+    def overwrite_file_dialog(self):
+        dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            Gtk.MessageType.QUESTION,
+            Gtk.ButtonsType.YES_NO, "File already exists!")
+        dialog.format_secondary_text("Would you like to overwrite existing file?")
+        dialog.set_title("Rename")
+
+        response = dialog.run()
+        dialog.destroy()
+        if response == Gtk.ResponseType.YES:
+            return True
+        elif response == Gtk.ResponseType.NO:
+            return False
+
+    def rename_file_dialog(self):
+        dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+            Gtk.MessageType.QUESTION,
+            Gtk.ButtonsType.OK_CANCEL, "Would you like to rename new file before moving?")
+        dialog.set_title("Rename")
+
+        box = dialog.get_content_area()
+        userEntry = Gtk.Entry()
+        userEntry.set_size_request(150,0)
+        box.pack_end(userEntry, False, False, 0)
+        dialog.show_all()
+
+        response = dialog.run()
+        text = userEntry.get_text()
+        dialog.destroy()
+        if response == Gtk.ResponseType.OK and (text != ''):
+            return text
+        elif response == Gtk.ResponseType.CANCEL:
+            return None
 
 def main():
     win = IngressMainWindow()

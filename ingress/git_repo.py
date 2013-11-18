@@ -9,7 +9,7 @@ class Repository(_Repository):
     def get_cur_branch(self):
         for b in self.branches():
             branch = self.lookup_branch(b)
-            if branch.is_head(): branch.branch_name
+            if branch.is_head(): return branch.branch_name
 
     def branches(self):
         return self.listall_branches()

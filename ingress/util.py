@@ -4,20 +4,22 @@ from gi.repository import Gtk
 import os, pwd, grp, stat
 from pygit2 import Repository as _Repository
 from constants import *
+import shutil
 
 class Util(object):
     @staticmethod
-    def create_label(label_name):
+    def create_label(label_name, align=Gtk.Align.END):
         markup = "<b>%s</b>" % label_name
         label = Gtk.Label(label=markup)
         label.set_use_markup(True)
-        label.set_alignment(0.8, 0)
+        label.set_halign(align)
+        # label.set_justify(Gtk.Justification.RIGHT)
         return label
 
     @staticmethod
-    def create_info_label(label_name):
+    def create_info_label(label_name,  align=Gtk.Align.START):
         label = Gtk.Label(label=label_name)
-        label.set_alignment(1, 0)
+        label.set_halign(align)
         return label
 
     @staticmethod
@@ -75,6 +77,43 @@ class Util(object):
         )
 
     @staticmethod
+    def cp_file(src, dst):
+        if os.path.isdir(src):
+            try:
+                shutil.copytree(src, dst)
+                return True;
+            except Error:
+                return False;
+        else:
+            try:
+                shutil.copy2(src, dst)
+                return True;
+            except IOError:
+                return False;
+
+    @staticmethod
+    def rename_file(src, dst):
+        if os.path.isdir(src):
+            if not os.path.exists(dst):
+                os.mkdir(dst)
+            for src_dir, dirs, files in os.walk(src):
+                dst_dir = src_dir.replace(src, dst)
+                if not os.path.exists(dst_dir):
+                    os.mkdir(dst_dir)
+                for file_ in files:
+                    src_file = os.path.join(src_dir, file_)
+                    dst_file = os.path.join(dst_dir, file_)
+                    if os.path.exists(dst_file):
+                        os.remove(dst_file)
+                    shutil.move(src_file, dst_dir)
+            os.rmdir(src)
+        else:
+            try:
+                shutil.move(src, dst)
+            except IOError:
+                pass
+
+    @staticmethod
     def is_integer(entry):
         try:
             int(entry)
@@ -96,3 +135,19 @@ class Util(object):
     def clear_notebook(notebook):
         for page in notebook.get_children():
                 notebook.remove(page)
+
+
+# class KeyValueBox(Gtk.Alignment):
+#     def __init__(self, key, value):
+#         super(KeyValueBox, self).__init__()
+#         self.set(1, 0, 0, 0)
+#         self.set_homogeneous(True)
+#         self.pack_start(key, True, True, 10)
+#         self.pack_start(value, True, True, 0)
+
+class KeyValueBox(Gtk.Box):
+    def __init__(self, key, value):
+        super(KeyValueBox, self).__init__((Gtk.Orientation.HORIZONTAL, 5))
+        self.set_homogeneous(True)
+        self.pack_start(key, True, True, 10)
+        self.pack_start(value, True, True, 0)

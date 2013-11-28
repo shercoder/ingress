@@ -12,6 +12,8 @@ class Util(object):
         markup = "<b>%s</b>" % label_name
         label = Gtk.Label(label=markup)
         label.set_use_markup(True)
+        label.set_hexpand(False)
+        label.set_vexpand(False)
         label.set_halign(align)
         # label.set_justify(Gtk.Justification.RIGHT)
         return label
@@ -19,8 +21,14 @@ class Util(object):
     @staticmethod
     def create_info_label(label_name,  align=Gtk.Align.START):
         label = Gtk.Label(label=label_name)
+        label.set_hexpand(False)
+        label.set_vexpand(False)
         label.set_halign(align)
         return label
+
+    @staticmethod
+    def create_simple_label(label_name):
+        return Util.create_info_label(label_name)
 
     @staticmethod
     def get_file_stat(filepath):

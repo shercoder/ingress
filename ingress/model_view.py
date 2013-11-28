@@ -5,6 +5,7 @@ from send2trash import send2trash
 from constants import *
 import os
 from util import Util
+from compress import CompressDialog
 
 class IngressTreeStore(Gtk.TreeStore):
     def __init__(self):
@@ -43,8 +44,10 @@ class IngressTreeStore(Gtk.TreeStore):
         return self._show_hidden
 
 class IngressTreeView(Gtk.TreeView):
-    def __init__(self, treestore):
+    def __init__(self, treestore, parent_window):
         super(IngressTreeView, self).__init__(treestore)
+        self.parent_window = parent_window
+
         self.set_name('IngressTreeView')
         self.set_headers_visible(False)
 
@@ -59,6 +62,9 @@ class IngressTreeView(Gtk.TreeView):
         # create pop up menu on right click
         self.connect("button_press_event",self.on_right_click)
 
+        # set multiple selection
+        self.get_selection().set_mode(Gtk.SelectionMode.MULTIPLE)
+
     def add_popup_menu(self, filepath):
         self.popup = Gtk.Menu()
         # self.popup.append(Gtk.MenuItem(label="Cut"))
@@ -72,12 +78,14 @@ class IngressTreeView(Gtk.TreeView):
             open_file_label.connect("activate", self.on_activate_open_file, filepath)
             self.popup.append(open_file_label)
 
-
         # send file to trash
         move2trash = Gtk.MenuItem(label="Move To Trash")
         move2trash.connect("activate", self.on_activate_move_2_trash)
         self.popup.append(move2trash)
 
+        # compress
+        compress = CompressionMenuItem(self.parent_window, self, filepath)
+        self.popup.append(compress)
         self.popup.show_all()
 
     def on_row_expanded(self, view, iter, treepath):
@@ -94,12 +102,11 @@ class IngressTreeView(Gtk.TreeView):
 
     def on_right_click(self, treeview, event):
         if event.button == 3: # right click
-            # model, path = treeview.get_path_at_pos(int(event.x), int(event.y))
             pthinfo = treeview.get_path_at_pos(event.x, event.y)
             if pthinfo is not None:
                 path, col, cellx, celly = pthinfo
                 treeview.grab_focus()
-                treeview.set_cursor(path, col, 0)
+                # treeview.set_cursor(path, col, 0)
                 iter = self.get_model().get_iter(path)
                 self.add_popup_menu(self.get_model()[iter][1])
                 self.popup.popup(None, None, None, None, event.button, event.time)
@@ -107,14 +114,16 @@ class IngressTreeView(Gtk.TreeView):
 
     def on_activate_move_2_trash(self, widget):
         selection = self.get_selection()
-        model, iter = selection.get_selected()
-        filepath = model[iter][1]
-        parent = model.iter_parent(iter)
-        if parent is not None:
-            parent_path = model.get_path(parent)
-            send2trash(filepath)
-            self.collapse_row(parent_path)
-            self.expand_to_path(parent_path)
+        model, treepaths = selection.get_selected_rows()
+        for treepath in treepaths:
+            iter = model.get_iter(treepath)
+            filepath = model[iter][1]
+            parent = model.iter_parent(iter)
+            if parent is not None:
+                parent_path = model.get_path(parent)
+                send2trash(filepath)
+                self.collapse_row(parent_path)
+                self.expand_to_path(parent_path)
 
     def on_filename_edited(self, widget, path, text):
         old_path = self.get_model()[path][1]
@@ -137,3 +146,13 @@ class IngressTreeView(Gtk.TreeView):
         elif os.name == 'posix':
             subprocess.call(('xdg-open', filepath))
 
+
+class CompressionMenuItem(Gtk.MenuItem):
+    def __init__(self, window, treeview, filepath):
+        Gtk.MenuItem.__init__(self, label="Compress")
+        self._filepath = filepath
+        self.parent_window = window
+        self.connect("activate", self.on_activate_compress, window, treeview, filepath)
+
+    def on_activate_compress(self, widget, window, treeview, filepath):
+        dialog = CompressDialog(window, treeview, filepath)

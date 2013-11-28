@@ -12,15 +12,8 @@ import pygit2
 import fnmatch
 
 class IngressMainWindow(Gtk.Window):
-    # TARGETS = [
-    #     ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0),
-    #     ('text/plain', 0, 1),
-    #     ('TEXT', 0, 2),
-    #     ('STRING', 0, 3),
-    # ]
-
     TARGETS = [
-        ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET, 0)
+        ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET|Gtk.TargetFlags.OTHER_WIDGET, 0)
     ]
 
     def __init__(self):
@@ -101,7 +94,7 @@ class IngressMainWindow(Gtk.Window):
 
     def create_tree(self):
         self._store = IngressTreeStore()
-        self._treeview = IngressTreeView(self._store)
+        self._treeview = IngressTreeView(self._store, self)
         self._treeview.set_enable_tree_lines(True)
         self._treeview.get_selection().connect("changed", self.on_tree_selection_changed)
 
@@ -131,27 +124,28 @@ class IngressMainWindow(Gtk.Window):
         filestat = Util.get_file_stat(filepath)
 
         # if dir then Ask user to calculate
-        filesize = str(Util.get_filesize_format(filestat.st_size))
+        size_of_file = str(Util.get_filesize_format(filestat.st_size))
         if os.path.isdir(filepath):
-            filesize = "Calculate"
+            filesize = Gtk.Button(label="Calculate")
+            filesize.connect("clicked", self.on_clicked_filesize_button)
+            filesize.set_tooltip_text("Click to calculate")
+        else:
+            filesize = Util.create_info_label(size_of_file)
+        filesize.set_size_request(70, 30)
 
         # Create labels for general tab
         filename_label = Util.create_label("Name:")
         filename = Util.create_info_label(os.path.basename(filepath))
         filesize_label = Util.create_label("Filesize:")
 
-        filesize = Gtk.Button(label=filesize)
-        filesize.set_size_request(70, 30)
+        # filesize = Gtk.Button(label=filesize)
+
         location_label = Util.create_label("Location:")
         location = Util.create_info_label(os.path.dirname(filepath))
         last_modified_label = Util.create_label("Last Modified:")
         last_modified = Util.create_info_label(time.ctime(filestat.st_mtime))
         last_access_label = Util.create_label("Last Access:")
         last_access = Util.create_info_label(time.ctime(filestat.st_atime))
-
-        filesize.connect("clicked", self.on_clicked_filesize_button)
-        filesize.set_tooltip_text("Click to calculate")
-        # filesize.set_size_request(filesize.get_allocation().width-.5, -1)
 
         # Add label locations
         grid.attach(filename_label, 0, 0, 1, 1)
@@ -304,15 +298,17 @@ class IngressMainWindow(Gtk.Window):
     ################Callbacks #####################
 
     def on_tree_selection_changed(self, selection):
-        model, treeiter = selection.get_selected()
-        if treeiter != None:
-            # remove all pages
-            for page in self._notebook.get_children():
-                self._notebook.remove(page)
+        if selection.count_selected_rows() == 1:
+            model, treepath = selection.get_selected_rows()
+            treeiter = model.get_iter(treepath[0])
+            if treeiter != None:
+                # remove all pages
+                for page in self._notebook.get_children():
+                    self._notebook.remove(page)
 
-            self.create_general_tab(model[treeiter][1])
-            self.create_permissions_tab(model[treeiter][1])
-            self._notebook.show_all()
+                self.create_general_tab(model[treeiter][1])
+                self.create_permissions_tab(model[treeiter][1])
+                self._notebook.show_all()
 
     def on_show_hidden_chkbox(self, button, name):
         self._treeview.get_model().set_show_hidden(button.get_active())
@@ -421,6 +417,7 @@ class IngressMainWindow(Gtk.Window):
         filepath, entry = user_data
         tags = entry.get_text()
         self._index_manager.update_document(filepath, tags)
+        self._notebook.show_all()
 
     def on_tag_label_close_clicked(self, tag_label, filepath, box):
         self._index_manager.delete_tag(filepath, tag_label.label.get_text())
@@ -430,7 +427,10 @@ class IngressMainWindow(Gtk.Window):
     # drag and drop callbacks
     def _dnd_get_data(self, treeview, context, selection, targetType, eventTime):
         treeselection = treeview.get_selection()
-        model, iterator = treeselection.get_selected()
+        model, treepaths = treeselection.get_selected_rows()
+
+        # get the first iter, don't allow multiple selection drag n drop
+        iterator = model.get_iter(treepaths[0])
         data = model.get_value(iterator, 1)
         selection.set(selection.get_target(), 8, data)
 
@@ -463,6 +463,11 @@ class IngressMainWindow(Gtk.Window):
                     new_filepath = os.path.join(dest_path, os.path.basename(data))
                     model.append(iterator, [os.path.basename(data), new_filepath])
                     Util.cp_file(data, new_filepath)
+
+                # update treeview
+                treepath = model.get_path(iterator)
+                self._treeview.collapse_row(treepath)
+                self._treeview.expand_to_path(treepath)
 
         if Gdk.DragAction.MOVE == context.get_actions():
             context.finish(True, True, etime)

@@ -6,10 +6,11 @@ from ingress_css import *
 from constants import *
 from util import Util
 from tagfs import *
-import time
 from git_repo import *
 import pygit2
 import fnmatch
+
+from fileinfo import FileGeneral, FilePermissions, FileTags
 
 class IngressMainWindow(Gtk.Window):
     TARGETS = [
@@ -119,142 +120,41 @@ class IngressMainWindow(Gtk.Window):
         # General Page
         grid = Gtk.Grid(row_spacing=2, column_spacing=10)
         grid.set_name('GeneralTab')
-        self._notebook.append_page(grid, Gtk.Label(label="General"))
+        self._notebook.append_page(grid, Gtk.Label(label="FileInfo"))
 
-        filestat = Util.get_file_stat(filepath)
-
-        # if dir then Ask user to calculate
-        size_of_file = str(Util.get_filesize_format(filestat.st_size))
-        if os.path.isdir(filepath):
-            filesize = Gtk.Button(label="Calculate")
-            filesize.connect("clicked", self.on_clicked_filesize_button)
-            filesize.set_tooltip_text("Click to calculate")
-        else:
-            filesize = Util.create_info_label(size_of_file)
-        filesize.set_size_request(70, 30)
-
-        # Create labels for general tab
-        filename_label = Util.create_label("Name:")
-        filename = Util.create_info_label(os.path.basename(filepath))
-        filesize_label = Util.create_label("Filesize:")
-
-        # filesize = Gtk.Button(label=filesize)
-
-        location_label = Util.create_label("Location:")
-        location = Util.create_info_label(os.path.dirname(filepath))
-        last_modified_label = Util.create_label("Last Modified:")
-        last_modified = Util.create_info_label(time.ctime(filestat.st_mtime))
-        last_access_label = Util.create_label("Last Access:")
-        last_access = Util.create_info_label(time.ctime(filestat.st_atime))
-
-        # Add label locations
-        grid.attach(filename_label, 0, 0, 1, 1)
-        grid.attach(filename, 1, 0, 1, 1)
-        grid.attach(filesize_label, 0, 1, 1, 1)
-        grid.attach(filesize, 1, 1, 1, 1)
-        grid.attach(location_label, 0, 2, 1, 1)
-        grid.attach(location, 1, 2, 1, 1)
-        grid.attach(last_modified_label, 0, 3, 1, 1)
-        grid.attach(last_modified, 1, 3, 1, 1)
-        grid.attach(last_access_label, 0, 4, 1, 1)
-        grid.attach(last_access, 1, 4, 1, 1)
+        # add general file info
+        file_general = FileGeneral(filepath, self._treeview)
+        grid.attach(file_general, 0, 0, 1, 1)
 
         # Add separator
-        hseparator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        grid.attach(hseparator, 0, 5, 3, 3)
+        empty_label = Gtk.Label()
+        grid.attach(empty_label, 0, 1, 1, 1)
 
-        # Git Info
+        # add general permission info
+        file_permissions = FilePermissions(filepath, self._treeview)
+        grid.attach(file_permissions, 0, 2, 1, 1)
+
+        # Add separator
+        empty_label = Gtk.Label()
+        grid.attach(empty_label, 0, 3, 1, 1)
+
+        if not os.path.isdir(filepath):
+            file_tags = FileTags(filepath, self._index_manager)
+            grid.attach(file_tags, 0, 4, 1, 1)
+
+
         if os.path.isdir(filepath) and Util.has_git_repo(filepath):
             self.generate_git_info(grid, filepath)
-
-    def create_permissions_tab(self, filepath):
-        # Permissions Page
-        grid = Gtk.Grid(row_spacing=2, column_spacing=2, column_homogeneous=True)
-        grid.set_name('PermissionsGrid')
-        self._notebook.append_page(grid, Gtk.Label(label="Permissions"))
-
-        # stat the file
-        filestat = Util.get_file_stat(filepath)
-        owner_name = Util.get_usrname_from_uid(filestat.st_uid).pw_name
-        group_name = Util.get_grpname_from_gid(filestat.st_gid).gr_name
-
-        # Owner
-        owner_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
-        owner_box.set_homogeneous(True)
-        owner_label = Util.create_label("Owner:")
-        owner = Util.create_info_label(owner_name)
-        owner_box.pack_start(owner_label, False, False, True)
-        owner_box.pack_start(owner, False, False, True)
-        grid.add(owner_box)
-
-        # Group
-        grp_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
-        grp_box.set_homogeneous(True)
-        group_label = Util.create_label("Group:")
-        group = Util.create_info_label(group_name)
-        grp_box.pack_start(group_label, False, False, True)
-        grp_box.pack_start(group, False, False, True)
-        grid.attach(grp_box, 0, 1, 1, 1)
-
-        # Permission Mode
-        perm_box = Gtk.Box.new(Gtk.Orientation.HORIZONTAL, 5)
-        grp_box.set_homogeneous(True)
-        perms = Util.create_info_label(Util.create_perm_str(filestat.st_mode))
-
-        # Entry box
-        perms_entry = Gtk.Entry.new()
-        perms_entry.set_max_length(3)
-        perms_entry.set_width_chars(3)
-        perms_entry.set_text(Util.create_777_format(filestat.st_mode))
-        perms_entry.connect("changed", self.on_perms_changed, perms)
-
-        # pack perm label and entry together
-        perm_box.pack_start(perms, False, True, 0)
-        perm_box.pack_start(perms_entry, False, True, 0)
-        grid.attach(perm_box, 0, 2, 3, 1)
-
-        # Add tags to file
-        if not os.path.isdir(filepath):
-            self.add_tagging_to_grid(filepath, grid)
-
-    def add_tagging_to_grid(self, filepath, grid):
-        # Add separator
-        hseparator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        grid.attach(hseparator, 0, 5, 3, 3)
-
-        # Add tags
-        tagging_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
-        tag_entry = Gtk.Entry()
-        add_tag_button = Gtk.Button(label="Add Tag")
-        add_tag_button.connect("clicked", self.on_clicked_add_tag, (filepath, tag_entry))
-        tagging_box.pack_start(tag_entry, False, False, True)
-        tagging_box.pack_start(add_tag_button, False, False, True)
-        grid.attach(tagging_box, 0, 10, 3, 3)
-
-        tags = self._index_manager.get_tags_for_filepath(filepath)
-        if tags:
-            tags_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-            tags = tags = str(tags).split(' ')
-            row = 14
-            for i, tag in enumerate(tags):
-                if i%5 == 0:
-                    grid.attach(tags_box, 0, row, 1, 1)
-                    tags_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-                    row += 1
-                tag_label = TagLabel(tag)
-                tag_label.connect("close-clicked", self.on_tag_label_close_clicked, filepath, tags_box)
-                tags_box.pack_start(tag_label, False, False, True)
-            grid.attach(tags_box, 0, row, 1, 1)
-
 
     def generate_git_info(self, grid, filepath):
         repo = Repository(filepath)
 
-        git_label = Util.create_label("<big><u>Git Repository Information</u></big>")
-        git_label.set_use_markup(True)
-        grid.attach(git_label, 0, 10, 1, 1)
-
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+
+        git_label = Util.create_label("<big>Git Repository Information</big>",
+                                    align=Gtk.Align.START)
+        git_label.set_use_markup(True)
+        vbox.pack_start(git_label, False, False, 0)
 
         # Current branch name
         cur_branch_hbox = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
@@ -287,13 +187,20 @@ class IngressMainWindow(Gtk.Window):
         count_hbox.pack_start(count_entry, False, False, 1)
         vbox.pack_start(count_hbox, False, False, 1)
 
-        # status button
+        # status and branch creation button
+        git_button_box = Gtk.ButtonBox(Gtk.Orientation.HORIZONTAL)
+        git_button_box.set_layout(Gtk.ButtonBoxStyle.START)
         status_btn = Gtk.Button(label="Git Status")
+        create_branch_btn = Gtk.Button.new_with_label("Create Branch")
         status_btn.connect("clicked", self.create_git_status_tab, repo)
-        vbox.pack_start(status_btn, False, False, 1)
+        create_branch_btn.connect("clicked", self.on_click_create_branch, repo)
+        git_button_box.pack_start(status_btn, False, False, 0)
+        git_button_box.pack_start(create_branch_btn, False, False, 0)
+        vbox.pack_start(git_button_box, False, False, 0)
 
         # add vbox to the grid
-        grid.attach(vbox, 0, 12, 1, 1)
+        grid.attach(vbox, 0, 4, 1, 1)
+
 
     ################Callbacks #####################
 
@@ -305,16 +212,16 @@ class IngressMainWindow(Gtk.Window):
                 # remove all pages
                 for page in self._notebook.get_children():
                     self._notebook.remove(page)
-
-                self.create_general_tab(model[treeiter][1])
-                self.create_permissions_tab(model[treeiter][1])
+                filepath = model[treeiter][1]
+                self.create_general_tab(filepath)
                 self._notebook.show_all()
 
     def on_show_hidden_chkbox(self, button, name):
         self._treeview.get_model().set_show_hidden(button.get_active())
 
     def on_clicked_filesize_button(self, button):
-        (model, sel_iter) = self._treeview.get_selection().get_selected()
+        (model, treepaths) = self._treeview.get_selection().get_selected_rows()
+        sel_iter = model.get_iter(treepaths[0])
         if os.path.isdir(model[sel_iter][1]):
             filesize = Util.get_dir_size(model[sel_iter][1])
             button.set_label(Util.get_filesize_format(filesize))
@@ -513,6 +420,9 @@ class IngressMainWindow(Gtk.Window):
             return text
         elif response == Gtk.ResponseType.CANCEL:
             return None
+
+    def on_click_create_branch(self, button, repo):
+        pass
 
 def main():
     win = IngressMainWindow()

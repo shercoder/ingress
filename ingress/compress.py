@@ -18,21 +18,21 @@ class CompressDialog(Gtk.Window):
 
     def build_dialog(self):
         content_grid = Gtk.Grid()
-        content_grid.set_margin_left(12);
-        content_grid.set_margin_right(12);
-        content_grid.set_margin_top(12);
-        content_grid.set_margin_bottom(12);
+        content_grid.set_margin_left(12)
+        content_grid.set_margin_right(12)
+        content_grid.set_margin_top(12)
+        content_grid.set_margin_bottom(12)
         content_grid.set_row_spacing(6)
-        content_grid.set_column_spacing(12);
+        content_grid.set_column_spacing(12)
 
         # subgrid
         subgrid = Gtk.Grid()
-        subgrid.set_margin_left(0);
-        subgrid.set_margin_right(0);
-        subgrid.set_margin_top(0);
-        subgrid.set_margin_bottom(0);
+        subgrid.set_margin_left(0)
+        subgrid.set_margin_right(0)
+        subgrid.set_margin_top(0)
+        subgrid.set_margin_bottom(0)
         subgrid.set_row_spacing(6)
-        subgrid.set_column_spacing(12);
+        subgrid.set_column_spacing(12)
 
         # subgrid upper row
         filename_label = Util.create_simple_label("Filename:")

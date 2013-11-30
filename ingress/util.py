@@ -19,11 +19,15 @@ class Util(object):
         return label
 
     @staticmethod
-    def create_info_label(label_name,  align=Gtk.Align.START):
+    def create_info_label(label_name,  align=Gtk.Align.START, ellipsize=False):
         label = Gtk.Label(label=label_name)
         label.set_hexpand(False)
         label.set_vexpand(False)
         label.set_halign(align)
+        if ellipsize:
+            from gi.repository import Pango
+            label.set_ellipsize(Pango.EllipsizeMode.START)
+            label.set_tooltip_text(label_name)
         return label
 
     @staticmethod
@@ -32,7 +36,10 @@ class Util(object):
 
     @staticmethod
     def get_file_stat(filepath):
-        return os.lstat(filepath)
+        try:
+            return os.lstat(filepath)
+        except Exception:
+            return None
 
     @staticmethod
     def get_filesize_format(filesize):
@@ -144,18 +151,20 @@ class Util(object):
         for page in notebook.get_children():
                 notebook.remove(page)
 
-
-# class KeyValueBox(Gtk.Alignment):
-#     def __init__(self, key, value):
-#         super(KeyValueBox, self).__init__()
-#         self.set(1, 0, 0, 0)
-#         self.set_homogeneous(True)
-#         self.pack_start(key, True, True, 10)
-#         self.pack_start(value, True, True, 0)
-
 class KeyValueBox(Gtk.Box):
     def __init__(self, key, value):
         super(KeyValueBox, self).__init__((Gtk.Orientation.HORIZONTAL, 5))
         self.set_homogeneous(True)
         self.pack_start(key, True, True, 10)
         self.pack_start(value, True, True, 0)
+
+class InfoHeaderFrame(Gtk.Frame):
+    def __init__(self, label_name):
+        Gtk.Frame.__init__(self)
+        self.set_border_width(2)
+        label = Util.create_label("<big>" + label_name + "</big>",
+                                    align=Gtk.Align.START)
+        label.set_use_markup(True)
+        self.add(label)
+        self.set_shadow_type(Gtk.ShadowType.ETCHED_IN)
+        self.show()

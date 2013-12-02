@@ -11,6 +11,10 @@ GtkTreeView {
     margin: 5px;
 }
 
+#DropboxTreeView {
+    margin: 5px;
+}
+
 #GeneralTab {
     background-color: black;
     margin: 20px;

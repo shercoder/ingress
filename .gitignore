@@ -36,3 +36,5 @@ nosetests.xml
 
 # Sublime Project
 *.sublime-*
+
+app_credentials.json

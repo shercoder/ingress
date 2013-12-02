@@ -6,11 +6,12 @@ from ingress_css import *
 from constants import *
 from util import Util
 from tagfs import *
-from git_repo import *
+from git_repo import Repository, CreateBranchDialog
 import pygit2
 import fnmatch
 
 from fileinfo import FileGeneral, FilePermissions, FileTags
+from ingress_dropbox import session, client
 
 class IngressMainWindow(Gtk.Window):
     TARGETS = [
@@ -22,8 +23,6 @@ class IngressMainWindow(Gtk.Window):
         self.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
         self.set_border_width(6)
-        self.set_icon_name('ingress')
-        self.set_icon_from_file('system_file_manager.png')
 
         # Vertical box
         self._window_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
@@ -31,9 +30,6 @@ class IngressMainWindow(Gtk.Window):
 
         # Toolbar
         self.add_toolbar()
-
-        # Show Hidden Checkbox
-        self.add_show_hidden_chkbox()
 
         #window paned
         self.add_paned()
@@ -64,10 +60,10 @@ class IngressMainWindow(Gtk.Window):
         Gtk.Widget.set_size_request(self._paned.get_child1(), LEFT_PANED_WIDTH, -1)
 
         # pack 2
-        scrolled_window_right = Gtk.ScrolledWindow()
-        scrolled_window_right.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scrolled_window_right.add_with_viewport(self.create_notebook())
-        self._paned.pack2(scrolled_window_right, shrink=False)
+        self._scrolled_window_right = Gtk.ScrolledWindow()
+        self._scrolled_window_right.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+        self._scrolled_window_right.add_with_viewport(self.create_notebook())
+        self._paned.pack2(self._scrolled_window_right, shrink=False)
         self._window_vbox.pack_start(self._paned, True, True, True)
 
     def add_toolbar(self):
@@ -79,9 +75,16 @@ class IngressMainWindow(Gtk.Window):
         # add tool items
         self.add_search_tool()
 
+        # Show Hidden Checkbox
+        self.add_show_hidden_chkbox()
+
+        # add dropbox button
+        self.add_dropbox_open_button()
+
     def add_search_tool(self):
         toolitem = Gtk.ToolItem()
         self._search_bar = Gtk.Entry()
+        self._search_bar.set_placeholder_text("Search...")
         self._search_bar.connect("activate", self.on_search_enter_key)
         toolitem.add(self._search_bar)
         self._toolbar.insert(toolitem, -1)
@@ -92,6 +95,15 @@ class IngressMainWindow(Gtk.Window):
         toolitem.add(self._show_hidden_chkbox)
         self._toolbar.insert(toolitem, -1)
         self._show_hidden_chkbox.connect("toggled", self.on_show_hidden_chkbox, "Show Hidden")
+
+    def add_dropbox_open_button(self):
+        toolitem = Gtk.ToolItem()
+        self._dropbox_btn = Gtk.ToggleButton("Dropbox")
+        self._dropbox_btn.set_margin_left(5)
+        self._dropbox_btn.set_margin_right(5)
+        toolitem.add(self._dropbox_btn)
+        self._toolbar.insert(toolitem, -1)
+        self._dropbox_btn.connect("toggled", self.on_dropbox_btn_toggled)
 
     def create_tree(self):
         self._store = IngressTreeStore()
@@ -201,11 +213,26 @@ class IngressMainWindow(Gtk.Window):
         # add vbox to the grid
         grid.attach(vbox, 0, 4, 1, 1)
 
+    """
+        Dropbox Tree
+    """
+    def create_dropbox_tree(self, session):
+        store = client.DropboxTreeStore(session)
+        self._dropbox_treeview = client.DropboxTreeView(store, self)
 
     ################Callbacks #####################
 
     def on_tree_selection_changed(self, selection):
-        if selection.count_selected_rows() == 1:
+        if selection.count_selected_rows() == 1 and not self._dropbox_btn.get_active():
+            if self._scrolled_window_right:
+                self._scrolled_window_right.destroy()
+                self._scrolled_window_right = None
+            self._scrolled_window_right = Gtk.ScrolledWindow()
+            self._scrolled_window_right.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+            self._scrolled_window_right.add_with_viewport(self.create_notebook())
+            self._paned.pack2(self._scrolled_window_right, shrink=False)
+            self.show_all()
+
             model, treepath = selection.get_selected_rows()
             treeiter = model.get_iter(treepath[0])
             if treeiter != None:
@@ -218,21 +245,6 @@ class IngressMainWindow(Gtk.Window):
 
     def on_show_hidden_chkbox(self, button, name):
         self._treeview.get_model().set_show_hidden(button.get_active())
-
-    def on_clicked_filesize_button(self, button):
-        (model, treepaths) = self._treeview.get_selection().get_selected_rows()
-        sel_iter = model.get_iter(treepaths[0])
-        if os.path.isdir(model[sel_iter][1]):
-            filesize = Util.get_dir_size(model[sel_iter][1])
-            button.set_label(Util.get_filesize_format(filesize))
-
-    def on_perms_changed(self, entry, perms_label):
-        text = entry.get_text()
-        if len(text) == 3 and Util.is_integer(text):
-            (model, treeiter) = self._treeview.get_selection().get_selected()
-            os.chmod(model[treeiter][1], int(text, 8))
-            filestat = Util.get_file_stat(model[treeiter][1])
-            perms_label.set_label(Util.create_perm_str(filestat.st_mode))
 
     def create_git_status_tab(self, button, repo):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -422,7 +434,30 @@ class IngressMainWindow(Gtk.Window):
             return None
 
     def on_click_create_branch(self, button, repo):
-        pass
+        CreateBranchDialog(self, repo)
+
+    def on_dropbox_btn_toggled(self, button):
+        if button.get_active():
+            dropbox_session = session.DropboxSession(self)
+            if dropbox_session.api_client:
+                if self._notebook:
+                    self._notebook.destroy()
+                    self._notebook = None
+                if self._scrolled_window_right:
+                    self._scrolled_window_right.destroy()
+                    self._scrolled_window_right = None
+                self._scrolled_window_right = Gtk.ScrolledWindow()
+                self._scrolled_window_right.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
+
+                # create dropbox tree
+                self.create_dropbox_tree(dropbox_session)
+                self._scrolled_window_right.add_with_viewport(self._dropbox_treeview)
+                self._paned.pack2(self._scrolled_window_right, shrink=False)
+                self.show_all()
+        else:
+            if self._scrolled_window_right:
+                self._scrolled_window_right.destroy()
+                self._scrolled_window_right = None
 
 def main():
     win = IngressMainWindow()

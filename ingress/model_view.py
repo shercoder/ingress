@@ -8,9 +8,9 @@ from util import Util
 from compress import CompressDialog
 
 class IngressTreeStore(Gtk.TreeStore):
-    def __init__(self):
+    def __init__(self, source_path=HOME):
         super(IngressTreeStore, self).__init__(str, str)
-        self.generate_tree(HOME)
+        self.generate_tree(source_path)
         self._show_hidden = False
 
 

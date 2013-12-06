@@ -163,7 +163,7 @@ class IngressMainWindow(Gtk.Window):
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        git_label = Util.create_label("<big>Git Repository Information</big>",
+        git_label = Util.create_label("<big>GIT REPOSITORY</big>",
                                     align=Gtk.Align.START)
         git_label.set_use_markup(True)
         vbox.pack_start(git_label, False, False, 0)

@@ -1,6 +1,8 @@
 from gi.repository import Gtk, Gdk
 import os
 
+(DROPBOX_FILEPATH, LOCAL_FILEPATH) = range(2)
+
 class DropboxPaned(Gtk.Paned):
     def __init__(self):
         Gtk.Paned.__init__(self)
@@ -8,7 +10,7 @@ class DropboxPaned(Gtk.Paned):
 class DropboxTreeStore(Gtk.TreeStore):
     def __init__(self, session, source_path="/"):
         Gtk.TreeStore.__init__(self, str, str, bool)
-        self._session = session
+        self.session = session
         self.generate_tree(source_path)
 
     def generate_tree(self, path, parent=None):
@@ -18,7 +20,7 @@ class DropboxTreeStore(Gtk.TreeStore):
             self.append(parent, None)
         else:
             self.remove(self.iter_children(parent))
-            folder_metadata = self._session.list_folders(path)
+            folder_metadata = self.session.list_folders(path)
             if folder_metadata:
                 for file_metadata in folder_metadata['contents']:
                     filepath = file_metadata['path']
@@ -58,8 +60,8 @@ class DropboxTreeView(Gtk.TreeView):
         self.drag_dest_add_text_targets()
         self.drag_source_add_text_targets()
 
-        # self.connect("drag_data_get", self._dnd_get_data_dropbox)
-        self.connect("drag_data_received", self._dnd_data_received_dropbox)
+        self.connect("drag-data-get", self._dnd_get_data_dropbox)
+        self.connect("drag-data-received", self._dnd_data_received_dropbox)
 
         # self.get_selection().connect("changed", self.on_tree_selection_changed)
 
@@ -93,7 +95,7 @@ class DropboxTreeView(Gtk.TreeView):
             if not model[iterator][2]:
                 iterator = model.iter_parent(iterator)
             dest_path = os.path.join(model[iterator][1], os.path.basename(data))
-            res = self.get_model()._session.upload_file(dest_path, data)
+            res = self.get_model().session.upload_file(dest_path, data)
             if res:
                 model.append(iterator, [os.path.basename(res['path']), res['path'], res['is_dir']])
 
@@ -106,7 +108,7 @@ class DropboxTreeView(Gtk.TreeView):
             context.finish(True, True, time)
         return
 
-    def _dnd_get_data(self, treeview, context, selection, targetType, eventTime):
+    def _dnd_get_data_dropbox(self, treeview, context, selection, targetType, eventTime):
         treeselection = treeview.get_selection()
         model, treepaths = treeselection.get_selected_rows()
 
@@ -114,6 +116,7 @@ class DropboxTreeView(Gtk.TreeView):
         iterator = model.get_iter(treepaths[0])
         data = model.get_value(iterator, 1)
         selection.set(selection.get_target(), 8, data)
+        self.parent_window.drop_from_dropbox = True
 
     def on_filename_edited(self, widget, path, text):
         old_path = self.get_model()[path][1]
@@ -122,7 +125,7 @@ class DropboxTreeView(Gtk.TreeView):
         if old_path is not '/':
             parent_path = os.path.dirname(old_path)
             new_path = os.path.join(parent_path, text)
-            if self.get_model()._session.rename_file(old_path, new_path):
+            if self.get_model().session.rename_file(old_path, new_path):
                 self.get_model()[path][0] = text
                 self.get_model()[path][1] = new_path
 
@@ -135,10 +138,10 @@ class DropboxTreeView(Gtk.TreeView):
         self.popup.append(remove_label)
 
         # download file
-        download_label = Gtk.MenuItem(label="Download from Dropbox")
-        download_label.connect("activate", self.on_activate_download_file, filepath, parent_iter)
-        self.popup.append(download_label)
-        self.popup.show_all()
+        # download_label = Gtk.MenuItem(label="Download from Dropbox")
+        # download_label.connect("activate", self.on_activate_download_file, filepath, parent_iter)
+        # self.popup.append(download_label)
+        # self.popup.show_all()
 
     def on_right_click(self, treeview, event):
         if event.button == 3: # right click
@@ -154,10 +157,7 @@ class DropboxTreeView(Gtk.TreeView):
             return True
 
     def on_activate_remove_file(self, widget, filepath, parent_iter):
-        if self.get_model()._session.remove_file(filepath):
+        if self.get_model().session.remove_file(filepath):
             treepath = self.get_model().get_path(parent_iter)
             self.collapse_row(treepath)
             self.expand_to_path(treepath)
-
-    def on_activate_download_file(self, widget, filepath):
-        pass

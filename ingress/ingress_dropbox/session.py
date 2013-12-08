@@ -2,8 +2,8 @@ from dropbox import client, rest
 from gi.repository import Gtk, Gdk
 
 # add your app key and secret here
-APP_KEY = ''
-APP_SECRET = ''
+APP_KEY = '2mpahc59sp02x7o'
+APP_SECRET = 'ziiussugdqp5qwa'
 
 class DropboxSession(object):
     TOKEN_FILE = "ingress_token_store.txt"
@@ -73,6 +73,13 @@ class DropboxSession(object):
             with open(local_path, 'rb') as f:
                 res = self.api_client.put_file(dropbox_path, f)
                 return res
+        except rest.ErrorResponse, e:
+            print(e)
+            return None
+
+    def download_file_and_metadata(self, dropbox_path):
+        try:
+            return self.api_client.get_file_and_metadata(dropbox_path)
         except rest.ErrorResponse, e:
             print(e)
             return None

@@ -46,6 +46,8 @@ class IngressMainWindow(Gtk.Window):
         # creating index manager
         self._index_manager = IndexManager()
 
+        self.drop_from_dropbox = False
+
     def quit_main_window(self):
         self.connect("delete-event", Gtk.main_quit)
 
@@ -113,8 +115,8 @@ class IngressMainWindow(Gtk.Window):
 
         # drag and drop setting
         self._treeview.enable_model_drag_source(Gdk.ModifierType.BUTTON1_MASK,
-                                                                self.TARGETS,
-                                                                Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
+                                                self.TARGETS,
+                                                Gdk.DragAction.DEFAULT | Gdk.DragAction.MOVE)
         self._treeview.enable_model_drag_dest(self.TARGETS, Gdk.DragAction.DEFAULT)
 
         self._treeview.drag_dest_add_text_targets()
@@ -249,9 +251,6 @@ class IngressMainWindow(Gtk.Window):
     def create_git_status_tab(self, button, repo):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
-        # wt_label = Util.create_label("<big>Git Status</big>")
-        # vbox.pack_start(wt_label, False, False, 1)
-
         # Display WT info
         wt_status_code = {
             pygit2.GIT_STATUS_WT_NEW: "new:",
@@ -352,6 +351,7 @@ class IngressMainWindow(Gtk.Window):
         iterator = model.get_iter(treepaths[0])
         data = model.get_value(iterator, 1)
         selection.set(selection.get_target(), 8, data)
+        self.drop_from_dropbox = False
 
     def _dnd_data_received(self, treeview, context, x, y, selection, targetType, time):
         model = treeview.get_model()
@@ -364,29 +364,47 @@ class IngressMainWindow(Gtk.Window):
                 iterator = model.iter_parent(iterator)
             dest_path = model[iterator][1]
 
-            # Only move on valid move
-            if self.can_move_file(data, dest_path):
-                new_filepath = os.path.join(dest_path, os.path.basename(data))
+            if self.drop_from_dropbox:
+                dbx_session = self._dropbox_treeview.get_model().session
+                res, metadata = dbx_session.api_client.get_file_and_metadata(data)
+                dbx_filename = os.path.basename(metadata['path'])
+                new_filepath = os.path.join(dest_path, dbx_filename)
                 if os.path.exists(new_filepath):
-                    # Ask user to overwrite or rename new file
-                    if self.overwrite_file_dialog():
-                        model.append(iterator, [os.path.basename(data), new_filepath])
-                        Util.cp_file(data, new_filepath)
-                    else:
+                    if not self.overwrite_file_dialog():
                         text = self.rename_file_dialog()
                         if text is not None and not os.path.exists(os.path.join(dest_path, text)):
                             new_filepath = os.path.join(dest_path, text)
-                            model.append(iterator, [text, new_filepath])
-                            Util.cp_file(data, new_filepath)
-                else:
-                    new_filepath = os.path.join(dest_path, os.path.basename(data))
-                    model.append(iterator, [os.path.basename(data), new_filepath])
-                    Util.cp_file(data, new_filepath)
+                try:
+                    with open(new_filepath, 'w') as f:
+                        f.write(res.read())
+                        model.append(iterator, [os.path.basename(new_filepath), new_filepath])
+                except Exception, e:
+                    print(e)
 
-                # update treeview
-                treepath = model.get_path(iterator)
-                self._treeview.collapse_row(treepath)
-                self._treeview.expand_to_path(treepath)
+            else:
+                # Only move on valid move
+                if self.can_move_file(data, dest_path):
+                    new_filepath = os.path.join(dest_path, os.path.basename(data))
+                    if os.path.exists(new_filepath):
+                        # Ask user to overwrite or rename new file
+                        if self.overwrite_file_dialog():
+                            model.append(iterator, [os.path.basename(data), new_filepath])
+                            Util.cp_file(data, new_filepath)
+                        else:
+                            text = self.rename_file_dialog()
+                            if text is not None and not os.path.exists(os.path.join(dest_path, text)):
+                                new_filepath = os.path.join(dest_path, text)
+                                model.append(iterator, [text, new_filepath])
+                                Util.cp_file(data, new_filepath)
+                    else:
+                        new_filepath = os.path.join(dest_path, os.path.basename(data))
+                        model.append(iterator, [os.path.basename(data), new_filepath])
+                        Util.cp_file(data, new_filepath)
+
+                    # update treeview
+                    treepath = model.get_path(iterator)
+                    self._treeview.collapse_row(treepath)
+                    self._treeview.expand_to_path(treepath)
 
         if Gdk.DragAction.MOVE == context.get_actions():
             context.finish(True, True, etime)

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GObject
 from  model_view import *
 from ingress_css import *
 from constants import *
@@ -47,6 +47,13 @@ class IngressMainWindow(Gtk.Window):
         self._index_manager = IndexManager()
 
         self.drop_from_dropbox = False
+
+        self.show_all()
+
+        self.statusbar = Gtk.Statusbar()
+        self.context_id = self.statusbar.get_context_id("IngressStatusbar")
+        self.statusbar.hide()
+        self._window_vbox.pack_end(self.statusbar, False, False, 0)
 
     def quit_main_window(self):
         self.connect("delete-event", Gtk.main_quit)
@@ -106,6 +113,15 @@ class IngressMainWindow(Gtk.Window):
         toolitem.add(self._dropbox_btn)
         self._toolbar.insert(toolitem, -1)
         self._dropbox_btn.connect("toggled", self.on_dropbox_btn_toggled)
+
+    def statusbar_push(self, text):
+        self.statusbar.show()
+        self.statusbar.push(self.context_id, text)
+
+    def statusbar_pop(self):
+        self.statusbar.remove_all(self.context_id)
+        # self.statusbar.pop(self.context_id)
+        self.statusbar.hide()
 
     def create_tree(self):
         self._store = IngressTreeStore()
@@ -321,13 +337,19 @@ class IngressMainWindow(Gtk.Window):
                     allfiles.append((hit['filename'], hit['filepath']))
             else:
                 for root, dirs, files in os.walk(HOME):
-                    files = [f for f in files if not f[0] == '.']
-                    dirs[:] = [d for d in dirs if not d[0] == '.']
+                    if not self._show_hidden_chkbox.get_active():
+                        files = [f for f in files if not f.startswith('.')]
+                        dirs[:] = [d for d in dirs if not d[0] == '.']
                     for term in search_terms:
                         for filename in fnmatch.filter(files, "*{}*".format(term)):
                             allfiles.append((filename, os.path.join(root, filename)))
-            self._treeview.get_model().generate_search_tree(allfiles)
+            if allfiles:
+                self.statusbar_pop()
+                self._treeview.get_model().generate_search_tree(allfiles)
+            else:
+                self.statusbar_push("No File Found")
         else:
+            self.statusbar_pop()
             self._treeview.get_model().generate_tree(HOME)
             Util.clear_notebook(self._notebook)
 
@@ -477,11 +499,13 @@ class IngressMainWindow(Gtk.Window):
                 self._scrolled_window_right.destroy()
                 self._scrolled_window_right = None
 
-def main():
+def main(argv):
+    GObject.threads_init()
+    Gdk.threads_init()
     win = IngressMainWindow()
     win.quit_main_window()
-    win.show_all()
     Gtk.main()
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(sys.argv)

@@ -6,6 +6,10 @@ from pygit2 import Repository as _Repository
 from constants import *
 import shutil
 
+# logger
+import logging
+logger = logging.getLogger(__name__)
+
 class Util(object):
     @staticmethod
     def create_label(label_name, align=Gtk.Align.END):
@@ -133,16 +137,20 @@ class Util(object):
         try:
             int(entry)
             return True
-        except ValueError:
+        except ValueError, e:
+            logger.error(e)
             return False
 
     # Git related methods
     @staticmethod
     def has_git_repo(filepath):
         try:
-            _Repository(filepath)
-            return True
-        except KeyError:
+            if _Repository(filepath):
+                return True
+            else:
+                return False
+        except KeyError, e:
+            logger.error("No repo at path: %s", e)
             return False
 
     # Other

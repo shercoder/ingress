@@ -1,6 +1,10 @@
 from gi.repository import Gtk, Gdk
 import os
 
+# logger
+import logging
+logger = logging.getLogger(__name__)
+
 (DROPBOX_FILEPATH, LOCAL_FILEPATH) = range(2)
 
 class DropboxPaned(Gtk.Paned):

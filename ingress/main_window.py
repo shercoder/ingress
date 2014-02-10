@@ -13,12 +13,17 @@ import fnmatch
 from fileinfo import FileGeneral, FilePermissions, FileTags
 from ingress_dropbox import session, client
 
+# logger
+import logging
+logger = logging.getLogger(__name__)
+
 class IngressMainWindow(Gtk.Window):
     TARGETS = [
         ('INGRESS_TREE_MODEL_ROW', Gtk.TargetFlags.SAME_WIDGET|Gtk.TargetFlags.OTHER_WIDGET, 0)
     ]
 
     def __init__(self):
+        logger.info("Ingress version 1.0")
         super(IngressMainWindow, self).__init__(type=Gtk.WindowType.TOPLEVEL, title="Ingress")
         self.set_size_request(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.set_position(Gtk.WindowPosition.CENTER)
@@ -52,8 +57,8 @@ class IngressMainWindow(Gtk.Window):
 
         self.statusbar = Gtk.Statusbar()
         self.context_id = self.statusbar.get_context_id("IngressStatusbar")
-        self.statusbar.hide()
         self._window_vbox.pack_end(self.statusbar, False, False, 0)
+        self.statusbar.hide()
 
     def quit_main_window(self):
         self.connect("delete-event", Gtk.main_quit)
@@ -177,6 +182,7 @@ class IngressMainWindow(Gtk.Window):
             self.generate_git_info(grid, filepath)
 
     def generate_git_info(self, grid, filepath):
+        logger.info("Displaying git info")
         repo = Repository(filepath)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -250,6 +256,7 @@ class IngressMainWindow(Gtk.Window):
             self._scrolled_window_right.add_with_viewport(self.create_notebook())
             self._paned.pack2(self._scrolled_window_right, shrink=False)
             self.show_all()
+            self.statusbar.hide()
 
             model, treepath = selection.get_selected_rows()
             treeiter = model.get_iter(treepath[0])
@@ -265,6 +272,7 @@ class IngressMainWindow(Gtk.Window):
         self._treeview.get_model().set_show_hidden(button.get_active())
 
     def create_git_status_tab(self, button, repo):
+        logger.info("Git status tab created")
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
         # Display WT info
@@ -330,6 +338,7 @@ class IngressMainWindow(Gtk.Window):
             search_terms = search_terms.split(' ')
 
         if entry.get_text():
+            logger.info("Search box in use")
             allfiles = []
             if is_tag_search:
                 results = self._index_manager.search_documents(search_terms)
@@ -344,9 +353,11 @@ class IngressMainWindow(Gtk.Window):
                         for filename in fnmatch.filter(files, "*{}*".format(term)):
                             allfiles.append((filename, os.path.join(root, filename)))
             if allfiles:
+                logger.info("Successfully searched for desired files")
                 self.statusbar_pop()
                 self._treeview.get_model().generate_search_tree(allfiles)
             else:
+                logger.info("Search did not match any file or tag")
                 self.statusbar_push("No File Found")
         else:
             self.statusbar_pop()
@@ -354,18 +365,21 @@ class IngressMainWindow(Gtk.Window):
             Util.clear_notebook(self._notebook)
 
     def on_clicked_add_tag(self, button, user_data):
+        logger.info("Adding new tags to a file")
         filepath, entry = user_data
         tags = entry.get_text()
         self._index_manager.update_document(filepath, tags)
         self._notebook.show_all()
 
     def on_tag_label_close_clicked(self, tag_label, filepath, box):
+        logger.info("Removing tag from a file")
         self._index_manager.delete_tag(filepath, tag_label.label.get_text())
         tag_label.destroy()
         box.show_all()
 
     # drag and drop callbacks
     def _dnd_get_data(self, treeview, context, selection, targetType, eventTime):
+        logger.info("Getting data for file being dragged")
         treeselection = treeview.get_selection()
         model, treepaths = treeselection.get_selected_rows()
 
@@ -376,6 +390,7 @@ class IngressMainWindow(Gtk.Window):
         self.drop_from_dropbox = False
 
     def _dnd_data_received(self, treeview, context, x, y, selection, targetType, time):
+        logger.info("Dropping selection")
         model = treeview.get_model()
         data = selection.get_data()
         drop_info = treeview.get_dest_row_at_pos(x, y)
@@ -387,6 +402,7 @@ class IngressMainWindow(Gtk.Window):
             dest_path = model[iterator][1]
 
             if self.drop_from_dropbox:
+                logger.info("Dropping file from Dropbox")
                 dbx_session = self._dropbox_treeview.get_model().session
                 res, metadata = dbx_session.api_client.get_file_and_metadata(data)
                 dbx_filename = os.path.basename(metadata['path'])
@@ -404,8 +420,10 @@ class IngressMainWindow(Gtk.Window):
                     print(e)
 
             else:
+                logger.info("Dropping file from local filesystem")
                 # Only move on valid move
                 if self.can_move_file(data, dest_path):
+                    logger.info("File move is permitted")
                     new_filepath = os.path.join(dest_path, os.path.basename(data))
                     if os.path.exists(new_filepath):
                         # Ask user to overwrite or rename new file
@@ -440,6 +458,7 @@ class IngressMainWindow(Gtk.Window):
         return True
 
     def overwrite_file_dialog(self):
+        logger.info("Overwrite filename dialog created")
         dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
             Gtk.MessageType.QUESTION,
             Gtk.ButtonsType.YES_NO, "File already exists!")
@@ -449,11 +468,14 @@ class IngressMainWindow(Gtk.Window):
         response = dialog.run()
         dialog.destroy()
         if response == Gtk.ResponseType.YES:
+            logger.info("YES - overwrite the file")
             return True
         elif response == Gtk.ResponseType.NO:
+            logger.info("NO - do not overwrite the file")
             return False
 
     def rename_file_dialog(self):
+        logger.info("Rename dialog window is created")
         dialog = Gtk.MessageDialog(self, Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
             Gtk.MessageType.QUESTION,
             Gtk.ButtonsType.OK_CANCEL, "Would you like to rename new file before moving?")
@@ -466,11 +488,13 @@ class IngressMainWindow(Gtk.Window):
         dialog.show_all()
 
         response = dialog.run()
-        text = userEntry.get_text()
+        text = userEntry.get_text().strip()
         dialog.destroy()
-        if response == Gtk.ResponseType.OK and (text != ''):
+        if response == Gtk.ResponseType.OK and text:
+            logger.info("New filename is given")
             return text
         elif response == Gtk.ResponseType.CANCEL:
+            logger.info("Rename dialog is cancelled")
             return None
 
     def on_click_create_branch(self, button, repo):
@@ -478,6 +502,7 @@ class IngressMainWindow(Gtk.Window):
 
     def on_dropbox_btn_toggled(self, button):
         if button.get_active():
+            logger.info("Entering dropbox mode")
             dropbox_session = session.DropboxSession(self)
             if dropbox_session.api_client:
                 if self._notebook:
@@ -495,17 +520,7 @@ class IngressMainWindow(Gtk.Window):
                 self._paned.pack2(self._scrolled_window_right, shrink=False)
                 self.show_all()
         else:
+            logger.info("Exiting dropbox mode")
             if self._scrolled_window_right:
                 self._scrolled_window_right.destroy()
                 self._scrolled_window_right = None
-
-def main(argv):
-    GObject.threads_init()
-    Gdk.threads_init()
-    win = IngressMainWindow()
-    win.quit_main_window()
-    Gtk.main()
-
-if __name__ == '__main__':
-    import sys
-    main(sys.argv)

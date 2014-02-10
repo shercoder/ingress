@@ -1,6 +1,10 @@
 from dropbox import client, rest
 from gi.repository import Gtk, Gdk
 
+# logger
+import logging
+logger = logging.getLogger(__name__)
+
 # add your app key and secret here
 APP_KEY = '2mpahc59sp02x7o'
 APP_SECRET = 'ziiussugdqp5qwa'
@@ -17,11 +21,13 @@ class DropboxSession(object):
         try:
             token = open(self.TOKEN_FILE).read()
             self.api_client = client.DropboxClient(token)
-            print("loaded access token")
-        except IOError:
+            logger.info("Successfully loaded access token from local file")
+        except IOError, e:
+            logger.error(e)
             self.start_flow(window)
 
     def start_flow(self, window):
+        logger.info("Requesting user for dropbox authorization")
         self.flow = client.DropboxOAuth2FlowNoRedirect(self.app_key, self.app_secret)
         authorize_url = self.flow.start()
 
@@ -37,14 +43,15 @@ class DropboxSession(object):
     def finish_flow(self):
         try:
             access_token, user_id = self.flow.finish(self.code_entry.get_text().strip())
+            logger.info("Successfully obtained access to user's dropbox account")
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
         with open(self.TOKEN_FILE, 'w') as f:
             f.write(access_token)
         self.api_client = client.DropboxClient(access_token)
-        print(self.api_client.account_info())
+        logger.info(self.api_client.account_info())
 
     def on_login_clicked(self, button):
         self.finish_flow()
@@ -52,9 +59,10 @@ class DropboxSession(object):
 
     def list_folders(self, path):
         try:
+            logger.info("Request to get metadata of dropbox folders and files")
             return self.api_client.metadata(path)
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
     def rename_file(self, old_path, new_path):
@@ -64,31 +72,34 @@ class DropboxSession(object):
         try:
             return self.api_client.file_move(from_path, to_path)
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
     def upload_file(self, dropbox_path, local_path):
+        logger.info("Starting Dropbox upload")
         # TODO: Chunk Uploader
         try:
             with open(local_path, 'rb') as f:
                 res = self.api_client.put_file(dropbox_path, f)
                 return res
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
     def download_file_and_metadata(self, dropbox_path):
+        logger.info("Starting Dropbox download")
         try:
             return self.api_client.get_file_and_metadata(dropbox_path)
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
     def remove_file(self, filepath):
+        logger.info("Removing file from dropbox")
         try:
             return self.api_client.file_delete(filepath)
         except rest.ErrorResponse, e:
-            print(e)
+            logger.error(e)
             return None
 
 
@@ -100,7 +111,7 @@ class DropboxLoginDialog(Gtk.Window):
         self.set_transient_for(window)
 
     def build_dialog(self, url, code_entry, create_button):
-        print("build_dialog")
+        logger.info("Build DropboxLoginDialog")
         content_grid = Gtk.Grid()
         content_grid.set_margin_left(12)
         content_grid.set_margin_right(12)
@@ -131,4 +142,5 @@ class DropboxLoginDialog(Gtk.Window):
         self.show_all()
 
     def on_cancel_clicked(self, button):
+        logger.info("DropboxLoginDialog cancelled")
         self.destroy()

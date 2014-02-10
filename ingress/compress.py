@@ -2,10 +2,15 @@ from gi.repository import Gtk, Gdk
 from util import Util
 import os
 
+# logger
+import logging
+logger = logging.getLogger(__name__)
+
 compress_types = {".ar": "ar r", ".tar": "tar -cf", ".tar.gz": "tar -czf", ".zip": "zip -r"}
 
 class CompressDialog(Gtk.Window):
     def __init__(self, window, treeview, filepath):
+        logger.info("Init CompressDialog")
         Gtk.Window.__init__(self, title="Compress")
         self._filepath = filepath
         self._treeview = treeview
@@ -17,6 +22,7 @@ class CompressDialog(Gtk.Window):
         self.show_all()
 
     def build_dialog(self):
+        logger.info("Build CompressDialog")
         content_grid = Gtk.Grid()
         content_grid.set_margin_left(12)
         content_grid.set_margin_right(12)
@@ -82,6 +88,7 @@ class CompressDialog(Gtk.Window):
         return store
 
     def create_filechooser_dialog(self):
+        logger.info("FileChooserDialog created under CompressDialog.")
         self._dialog = Gtk.FileChooserDialog("Please choose a folder", self,
             Gtk.FileChooserAction.SELECT_FOLDER,
             (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
@@ -112,6 +119,5 @@ class CompressDialog(Gtk.Window):
                 output, error = subprocess.Popen(
                                     command.split(' '), stdout=subprocess.PIPE,
                                     stderr=subprocess.PIPE).communicate()
-                # self._treeview.collapse_row(parent_path)
-                # self._treeview.expand_to_path(parent_path)
+                logger.info("Selected files are compressed.")
                 self.destroy()
